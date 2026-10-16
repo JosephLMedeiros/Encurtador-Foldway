@@ -1,4 +1,4 @@
-Status: Rascunho
+Status: Em revisão
 
 # Requirements Document
 
