@@ -1,0 +1,41 @@
+# Ingress para expor frontend e API externamente.
+# Pré-requisito: Ingress Controller instalado no cluster (ex.: nginx-ingress).
+# Se não houver Ingress Controller, use NodePort nos Services (Q-01).
+#
+# Para testar localmente com kind/minikube:
+#   minikube addons enable ingress
+#   ou: kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: encurtador-ingress
+  namespace: encurtador
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    # Habilitar CORS para permitir que o frontend chame a API
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, DELETE, OPTIONS"
+spec:
+  ingressClassName: nginx
+  rules:
+    # TODO: substituir pelo host real do cluster do bootcamp (D-02)
+    # Para testes locais com /etc/hosts: adicionar "127.0.0.1 encurtador.local"
+    - host: encurtador.local
+      http:
+        paths:
+          # Frontend serve a raiz
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80
+          # API serve sob /api — alinhar com o roteamento do frontend
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: api
+                port:
+                  number: 80

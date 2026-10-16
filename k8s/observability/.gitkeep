@@ -1,0 +1,2 @@
+# Diretório reservado para os manifests de observabilidade (spec 03-observabilidade).
+# Aqui entrarão: OpenTelemetry Collector, Prometheus, Grafana.

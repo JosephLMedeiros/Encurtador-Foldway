@@ -1,0 +1,49 @@
+# =============================================================================
+# Secrets e credenciais — NUNCA versionar
+# =============================================================================
+
+# Arquivos de secret locais (cópias com valores reais do k8s/database/secret.yaml)
+k8s/database/secret.local.yaml
+k8s/**/*.local.yaml
+
+# Arquivos .env com credenciais reais
+.env
+.env.local
+.env.*.local
+
+# =============================================================================
+# Dependências e builds
+# =============================================================================
+
+# Node.js
+node_modules/
+.next/
+dist/
+build/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# Go
+vendor/ 
+
+# =============================================================================
+# IDEs e ferramentas locais
+# =============================================================================
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# =============================================================================
+# Temporários e logs
+# =============================================================================
+*.log
+tmp/
+temp/
