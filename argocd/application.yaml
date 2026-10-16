@@ -1,30 +1,34 @@
+# Application do ArgoCD: o repositório é a fonte da verdade do namespace "encurtador".
+# Pré-requisito: ArgoCD instalado no cluster
+#   kubectl create namespace argocd
+#   kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+# Aplicar (uma única vez; depois disso, tudo chega pelo Git):
+#   kubectl apply -n argocd -f argocd/application.yaml
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: encurtador
+  name: kiro-portal
   namespace: argocd
-  # Para aplicar: kubectl apply -f k8s/base/argocd-app.yaml -n argocd
-  # Pré-requisito: ArgoCD instalado no cluster (Q-03)
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io   # apagar a Application remove os recursos do cluster
 spec:
   project: default
-
   source:
-    # TODO: substituir pela URL real do repositório
     repoURL: https://github.com/JosephLMedeiros/rascunho-encurtador.git
     targetRevision: main
-    # Aponta para o diretório raiz de manifests — o ArgoCD aplica tudo recursivamente
-    path: k8s
-
+    path: k8s   # kustomization.yaml: app + stack de observabilidade
   destination:
     server: https://kubernetes.default.svc
     namespace: encurtador
-
   syncPolicy:
     automated:
-      # Remove recursos que não existem mais no repositório
-      prune: true
-      # Reconcilia se alguém alterar o cluster manualmente
-      selfHeal: true
+      prune: true      # remove do cluster o que saiu do Git
+      selfHeal: true   # desfaz alterações manuais no cluster
     syncOptions:
-      # Cria o namespace automaticamente se não existir
       - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 3m
