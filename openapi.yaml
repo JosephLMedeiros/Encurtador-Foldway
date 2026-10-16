@@ -1,0 +1,174 @@
+openapi: 3.0.3
+info:
+  title: Kiro Portal - Cloud-Native URL Shortener API
+  version: 1.0.0
+  description: API oficial do encurtador de links multiversal do Kiro.
+paths:
+  /api/links:
+    get:
+      summary: Lista os links criados com suporte a paginação
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+            maximum: 200
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: Lista de links
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    short_code:
+                      type: string
+                    short_url:
+                      type: string
+                    original_url:
+                      type: string
+                    clicks:
+                      type: integer
+                    created_at:
+                      type: string
+                      format: date-time
+                    expires_at:
+                      type: string
+                      format: date-time
+                      nullable: true
+
+    post:
+      summary: Cria um link curto com suporte a vanity URL (personalizada)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - original_url
+              properties:
+                original_url:
+                  type: string
+                  format: uri
+                  example: "https://github.com/cloudops-bootcamp/hackathon"
+                custom_code:
+                  type: string
+                  example: "kiro-portal-pro"
+                expires_at:
+                  type: string
+                  format: date-time
+      responses:
+        '201':
+          description: Link criado com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  short_code:
+                    type: string
+                    example: "kiro-portal-pro"
+                  short_url:
+                    type: string
+                    example: "https://kiro.to/kiro-portal-pro"
+                  qr_code_url:
+                    type: string
+                    example: "https://kiro.to/qr/kiro-portal-pro"
+                  created_at:
+                    type: string
+                    format: date-time
+                  expires_at:
+                    type: string
+                    format: date-time
+                    nullable: true
+        '400':
+          description: URL inválida ou custom_code com formato inválido
+        '409':
+          description: custom_code já está em uso
+  
+  /{shortCode}:
+    get:
+      summary: Redireciona para a URL original e incrementa o contador de cliques
+      parameters:
+        - name: shortCode
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '302':
+          description: Redirecionamento bem-sucedido para o destino original
+        '404':
+          description: Link curto não encontrado no multiverso do Kiro
+        '410':
+          description: Link expirado
+
+  /api/links/{shortCode}/stats:
+    get:
+      summary: Retorna estatísticas avançadas e métricas de cliques do link
+      parameters:
+        - name: shortCode
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Estatísticas recuperadas com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  short_code:
+                    type: string
+                  original_url:
+                    type: string
+                  clicks:
+                    type: integer
+                    example: 42
+                  created_at:
+                    type: string
+                    format: date-time
+                  expires_at:
+                    type: string
+                    format: date-time
+                    nullable: true
+        '404':
+          description: Link não encontrado
+
+  /healthz:
+    get:
+      summary: Liveness probe (processo vivo)
+      responses:
+        '200':
+          description: OK
+
+  /readyz:
+    get:
+      summary: Readiness probe (API e banco de dados prontos)
+      responses:
+        '200':
+          description: Pronta
+        '503':
+          description: Banco de dados indisponível
+
+  /metrics:
+    get:
+      summary: Métricas coletadas pelo Prometheus
+      responses:
+        '200':
+          description: Métricas no formato Prometheus
+          content:
+            text/plain:
+              schema:
+                type: string
