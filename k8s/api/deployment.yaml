@@ -43,13 +43,15 @@ spec:
                 secretKeyRef:
                   name: db-credentials
                   key: DB_PASSWORD
-          # Startup: a API só abre a porta depois de conectar no banco e aplicar o schema (até ~60s).
+          # Startup: a API só abre a porta depois de conectar no banco e aplicar o schema.
+          # Orçamento (2s x 60 = 120s) maior que a espera interna pelo banco (60s): se o banco
+          # não vier, a própria API sai com erro em vez de ser morta no meio da migração.
           startupProbe:
             httpGet:
               path: /healthz
               port: http
             periodSeconds: 2
-            failureThreshold: 40
+            failureThreshold: 60
           # Liveness: processo vivo (não consulta o banco, para não reiniciar a API se o banco cair).
           livenessProbe:
             httpGet:
