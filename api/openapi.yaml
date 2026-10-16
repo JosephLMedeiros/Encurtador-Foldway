@@ -1,0 +1,67 @@
+# Sugestões de alteração ao openapi.yaml — para o Lucas revisar e mesclar.
+# Este arquivo é um trecho (não substitui o openapi.yaml): contém apenas o que muda ou é novo.
+# Motivos: o frontend precisa listar links (R-02), o Kubernetes precisa de probes (R-05)
+# e o Prometheus precisa de um endpoint de métricas (R-09).
+
+paths:
+  /api/links:
+    get:                                   # NOVO: listagem usada pelo frontend
+      summary: Lista os links criados
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50, maximum: 200 }
+        - name: offset
+          in: query
+          schema: { type: integer, default: 0 }
+      responses:
+        '200':
+          description: Lista de links
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    short_code:   { type: string }
+                    short_url:    { type: string }
+                    original_url: { type: string }
+                    clicks:       { type: integer }
+                    created_at:   { type: string, format: date-time }
+                    expires_at:   { type: string, format: date-time, nullable: true }
+    post:
+      responses:
+        '400':
+          description: URL inválida ou custom_code com formato inválido
+        '409':                             # NOVO: era 400 no rascunho
+          description: custom_code já está em uso
+
+  /{shortCode}:
+    get:
+      responses:
+        '410':                             # NOVO (sugestão): link existe, mas expirou
+          description: Link expirado
+
+  /healthz:                                # NOVO: liveness probe
+    get:
+      summary: O processo está vivo
+      responses:
+        '200': { description: OK }
+
+  /readyz:                                 # NOVO: readiness probe
+    get:
+      summary: A API está pronta (banco de dados acessível)
+      responses:
+        '200': { description: Pronta }
+        '503': { description: Banco indisponível }
+
+  /metrics:                                # NOVO: coletado pelo Prometheus
+    get:
+      summary: Métricas no formato Prometheus
+      responses:
+        '200':
+          description: Métricas
+          content:
+            text/plain:
+              schema: { type: string }

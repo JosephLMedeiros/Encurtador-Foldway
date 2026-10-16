@@ -101,13 +101,13 @@ A solução deverá integrar esses componentes à infraestrutura Kubernetes, ao 
 |---|---|---|---|---|---|
 | D-01 | Stack obrigatória: Kubernetes, GitHub Actions, ArgoCD, OpenTelemetry, Grafana | Confirmada | 2026-10-13 | Definida pelo enunciado | — |
 | D-02 | Ambiente Kubernetes (local ou cluster do bootcamp) | Pendente | | | |
-| D-03 | Tecnologia da API | Pendente | | | |
+| D-03 | Tecnologia da API | Confirmada | 2026-10-15 | Node.js. Framework HTTP e cliente do banco ainda a definir. | Abby, Diêgo e Lucas |
 | D-04 | Frontend | Pendente | | | |
 | D-05 | Banco de dados | Pendente | | | |
 | D-06 | Formato do código curto | Pendente | | | |
 | D-07 | Organização do repositório GitOps | Pendente | | | |
 | D-08 | Identidade (nome, personagem, tema, features) | Pendente | | | |
-| D-09 | Ferramentas e configuração de observabilidade (coleta, armazenamento de traces e métricas, dashboards) | Pendente | | | |
+| D-09 | Ferramentas e configuração de observabilidade (coleta, armazenamento de traces e métricas, dashboards) | Confirmada | 2026-10-15| OpenTelemetry Collector (OTLP), Tempo (traces), Prometheus (métricas) e Grafana (dashboards). Alternativa descartada: Jaeger. Detalhes de implantação ficam no design da spec 04 | Abby e Diêgo|
 | D-10 | Registry de imagens de contêiner | Pendente | | | |
 
 Estados possíveis:
