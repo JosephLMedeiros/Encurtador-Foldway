@@ -101,10 +101,10 @@ A solução deverá integrar esses componentes à infraestrutura Kubernetes, ao 
 |---|---|---|---|---|---|
 | D-01 | Stack obrigatória: Kubernetes, GitHub Actions, ArgoCD, OpenTelemetry, Grafana | Confirmada | 2026-10-13 | Definida pelo enunciado | — |
 | D-02 | Ambiente Kubernetes (local ou cluster do bootcamp) | Pendente | | | |
-| D-03 | Tecnologia da API | Confirmada | 2026-10-15 | Node.js. Framework HTTP e cliente do banco ainda a definir. | Abby, Diêgo e Lucas |
+| D-03 | Tecnologia da API | Confirmada | 2026-10-16 | Python 3.12 + FastAPI + psycopg 3 (substitui a decisão de 2026-10-15 por Node.js). FastAPI dá validação e OpenAPI nativos e tem instrumentação OTel oficial; a spec 01-backend-api (escrita para Node/Fastify) precisa ser revisada. | Diêgo (aguardando ciência de Abby e Lucas) |
 | D-04 | Frontend | Pendente | | | |
-| D-05 | Banco de dados | Pendente | | | |
-| D-06 | Formato do código curto | Pendente | | | |
+| D-05 | Banco de dados | Confirmada | 2026-10-16 | PostgreSQL 16 (schema em `api/app/schema.sql`, aplicado pela API com advisory lock). | Diêgo (aguardando ciência de Abby e Lucas) |
+| D-06 | Formato do código curto | Proposta | 2026-10-16 | Aleatório: 7 caracteres `[a-z0-9]` (configurável). Personalizado: 3-50 `[A-Za-z0-9_-]`. Redirect canônico em `/r/{code}`, com `/{code}` aceito por compatibilidade. | |
 | D-07 | Organização do repositório GitOps | Pendente | | | |
 | D-08 | Identidade (nome, personagem, tema, features) | Pendente | | | |
 | D-09 | Ferramentas e configuração de observabilidade (coleta, armazenamento de traces e métricas, dashboards) | Confirmada | 2026-10-15| OpenTelemetry Collector (OTLP), Tempo (traces), Prometheus (métricas) e Grafana (dashboards). Alternativa descartada: Jaeger. Detalhes de implantação ficam no design da spec 04 | Abby e Diêgo|
