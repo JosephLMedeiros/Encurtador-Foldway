@@ -41,8 +41,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def lifespan(app: FastAPI):
         pool = db.create_pool(settings)
         pool.open(wait=False)
-        db.wait_for_database(pool, settings.db_startup_timeout)
-        db.migrate(pool)
+        with telemetry.untraced():
+            db.wait_for_database(pool, settings.db_startup_timeout)
+            db.migrate(pool)
         app.state.repo = LinkRepository(pool)
         telemetry.set_active_links_source(app.state.repo.count_active)
         yield
@@ -90,7 +91,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.get("/readyz")
     def readyz(request: Request):
         try:
-            repo(request).ping(timeout=2)
+            with telemetry.untraced():  # chamado a cada 5s pelas probes
+                repo(request).ping(timeout=2)
         except Exception as exc:
             log.warning("readyz falhou: %s", exc)
             return JSONResponse(status_code=503, content={"status": "error", "db": "unavailable"})

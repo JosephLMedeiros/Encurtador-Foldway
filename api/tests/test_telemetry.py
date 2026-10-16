@@ -58,3 +58,17 @@ def test_trace_has_db_span_as_child_of_server_span(client, spans):
 def test_feature_usage_metric(client):
     client.get("/api/ranking")
     assert 'kiro_feature_used_total{feature="ranking"' in client.get("/metrics").text
+
+
+def test_probes_and_asgi_internals_do_not_create_spans(client, spans):
+    spans.clear()
+    client.get("/readyz")
+    client.get("/healthz")
+    client.get("/metrics")
+    assert spans.get_finished_spans() == ()
+
+    client.post("/api/links", json={"original_url": "https://example.com", "custom_code": "limpo"})
+    spans.clear()
+    client.get("/r/limpo")
+    kinds = {s.kind for s in spans.get_finished_spans()}
+    assert trace.SpanKind.INTERNAL not in kinds  # sem "http receive" / "http send"

@@ -9,7 +9,8 @@ O restante da aplicação usa só as funções deste módulo, nunca o SDK direta
 
 import logging
 import os
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 
 # Precisa vir antes dos imports de instrumentação: nomes estáveis (http.server.request.duration em s).
 os.environ.setdefault("OTEL_SEMCONV_STABILITY_OPT_IN", "http")
@@ -98,7 +99,9 @@ def _observe_active_links(_options: CallbackOptions):
 def setup(app: FastAPI) -> None:
     """Inicializa providers (uma vez por processo), instrumenta o app e expõe /metrics."""
     _setup_providers()
-    FastAPIInstrumentor.instrument_app(app, excluded_urls=EXCLUDED_URLS)
+    # exclude_spans: sem os spans internos do ASGI ("http receive"/"http send"), que só poluem o trace
+    FastAPIInstrumentor.instrument_app(app, excluded_urls=EXCLUDED_URLS,
+                                       exclude_spans=["receive", "send"])
 
     @app.get("/metrics", include_in_schema=False)
     def metrics_endpoint():
@@ -108,6 +111,13 @@ def setup(app: FastAPI) -> None:
 def set_active_links_source(source: Callable[[], int]) -> None:
     global _active_links_source
     _active_links_source = source
+
+
+@contextmanager
+def untraced() -> Iterator[None]:
+    """Executa sem gerar spans (probes e inicialização não devem virar traces soltos)."""
+    with suppress_instrumentation():
+        yield
 
 
 # ---------- Interface usada pelo código de negócio ----------
