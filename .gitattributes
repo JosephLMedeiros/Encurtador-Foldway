@@ -1,0 +1,5 @@
+# Arquivos de texto sempre com LF (scripts e configs rodam em containers Linux)
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.ico binary
