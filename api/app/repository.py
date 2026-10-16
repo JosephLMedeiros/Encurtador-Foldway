@@ -29,7 +29,7 @@ class LinkRepository:
                 (code, url, expires_at),
             ).fetchone()
 
-    def list(self, limit: int, offset: int) -> tuple[int, list[Row]]:
+    def list_page(self, limit: int, offset: int) -> tuple[int, list[Row]]:
         with self.pool.connection() as conn:
             total = conn.execute("SELECT count(*) AS n FROM links").fetchone()["n"]
             rows = conn.execute(

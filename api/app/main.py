@@ -142,7 +142,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             return error(400, "invalid_pagination", "limit e offset devem ser inteiros não negativos")
         if limit > MAX_LIMIT:
             return error(400, "invalid_pagination", f"limit máximo é {MAX_LIMIT}")
-        total, rows = repo(request).list(limit, offset)
+        total, rows = repo(request).list_page(limit, offset)
         return {"total": total, "items": [serialize(r) for r in rows]}
 
     @app.get("/api/links/{short_code}/stats")
