@@ -1,6 +1,7 @@
 """API do encurtador: criação, listagem, estatísticas e redirect de links."""
 
 import logging
+import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
@@ -11,7 +12,7 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from psycopg_pool import PoolTimeout
 from pydantic import BaseModel
 
-from . import db, shortcode
+from . import db, shortcode, telemetry
 from .config import Settings, load_settings
 from .repository import LinkRepository, Row
 
@@ -42,10 +43,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         db.wait_for_database(pool, settings.db_startup_timeout)
         db.migrate(pool)
         app.state.repo = LinkRepository(pool)
+        telemetry.set_active_links_source(app.state.repo.count_active)
         yield
         pool.close()
 
     app = FastAPI(title="Kiro Portal API", version="1.0.0", lifespan=lifespan)
+    telemetry.setup(app)
 
     def repo(request: Request) -> LinkRepository:
         return request.app.state.repo
@@ -128,6 +131,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             if row is None:
                 return error(503, "code_generation_failed", "não foi possível gerar um código único")
 
+        telemetry.link_created(vanity=body.custom_code is not None)
+        telemetry.tag_short_code(row["short_code"])
         return serialize(row)
 
     @app.get("/api/links")
@@ -143,6 +148,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def link_stats(short_code: str, request: Request):
         if not shortcode.is_valid_code(short_code):
             return error(400, "invalid_code", "código com formato inválido")
+        telemetry.tag_short_code(short_code)
         row = repo(request).get(short_code)
         if row is None:
             return error(404, "not_found", "link não encontrado")
@@ -153,12 +159,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def redirect(short_code: str, request: Request):
         if not shortcode.is_valid_code(short_code):
             return error(404, "not_found", "link não encontrado")
+        telemetry.tag_short_code(short_code)
         links = repo(request)
+        started = time.perf_counter()
         url = links.register_click(short_code, request.headers.get("user-agent"))
         if url is None:
-            if links.exists(short_code):
+            outcome = "expired" if links.exists(short_code) else "not_found"
+            telemetry.redirect_finished(time.perf_counter() - started, outcome)
+            if outcome == "expired":
                 return error(410, "expired", "este link expirou")
             return error(404, "not_found", "link não encontrado")
+        telemetry.redirect_finished(time.perf_counter() - started, "found")
+        telemetry.link_clicked()
         return RedirectResponse(url, status_code=302, headers={"Cache-Control": "no-store"})
 
     app.add_api_route("/r/{short_code}", redirect, methods=["GET"], name="redirect")

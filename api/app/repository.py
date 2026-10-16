@@ -71,3 +71,7 @@ class LinkRepository:
             return conn.execute(
                 "SELECT 1 FROM links WHERE short_code = %s", (code,)
             ).fetchone() is not None
+
+    def count_active(self) -> int:
+        with self.pool.connection(timeout=2) as conn:
+            return conn.execute("SELECT count(*) AS n FROM active_links").fetchone()["n"]
