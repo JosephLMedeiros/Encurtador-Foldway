@@ -1,0 +1,79 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  namespace: encurtador
+  labels:
+    app: api
+    app.kubernetes.io/component: api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: api
+  template:
+    metadata:
+      labels:
+        app: api
+        app.kubernetes.io/component: api
+      # Descomente quando spec 03-observabilidade for implementada:
+      # annotations:
+      #   prometheus.io/scrape: "true"
+      #   prometheus.io/port: "8080"
+      #   prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: api
+          # A tag é atualizada automaticamente pelo CI (GitHub Actions)
+          # Formato: ghcr.io/josephlmedeiros/rascunho-encurtador/api:SHA7
+          image: ghcr.io/josephlmedeiros/rascunho-encurtador/api:IMAGE_TAG_PLACEHOLDER
+
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+
+          # Variáveis não sensíveis vêm do ConfigMap
+          envFrom:
+            - configMapRef:
+                name: api-config
+
+          # Credenciais do banco vêm do Secret (nunca no ConfigMap)
+          env:
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: DB_USER
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: DB_PASSWORD
+
+          # Liveness: reinicia o container se ficar não-responsivo
+          # Path /health deve ser implementado pela equipe de backend (spec 01)
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            failureThreshold: 3
+
+          # Readiness: só envia tráfego quando a API estiver pronta
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"

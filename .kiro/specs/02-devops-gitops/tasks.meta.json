@@ -1,0 +1,685 @@
+{
+  "pbtResults": {},
+  "executionHistory": {
+    "D-02 confirmada (ambiente Kubernetes).": [
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123082499
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123097412
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123151037
+      }
+    ],
+    "D-10 confirmada (registry de imagens).": [
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123082566
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123153478
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123155994
+      }
+    ],
+    "Q-01 confirmada (tipo de exposição externa).": [
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123082599
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123161795
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123164321
+      }
+    ],
+    "Q-02 confirmada (estratégia de banco).": [
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123082636
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123166845
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123169397
+      }
+    ],
+    "Q-03 verificada (status do ArgoCD no cluster).": [
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123082698
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123171893
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123174401
+      }
+    ],
+    "Spec `01-nucleo-funcional` deve ter ao menos o design aprovado (para saber porta/path do health check, variáveis de ambiente e Dockerfiles esperados).": [
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123082720
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123176991
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123179743
+      }
+    ],
+    "`kubectl apply -f k8s/base/namespace.yaml` cria o namespace sem erros.": [
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123082739
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123185507
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123274522
+      }
+    ],
+    "`kubectl get namespace encurtador` retorna o namespace.": [
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123082764
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123277153
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123279788
+      }
+    ],
+    "`kubectl apply -f k8s/api/configmap.yaml -n encurtador` sem erros.": [
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123082788
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123282586
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123285386
+      }
+    ],
+    "`kubectl describe configmap api-config -n encurtador` mostra as chaves esperadas.": [
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123082814
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123288192
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123290973
+      }
+    ],
+    "O arquivo versionado não contém credenciais reais.": [
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123082836
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123293771
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123296427
+      }
+    ],
+    "Existe uma instrução (comentário ou README) de como criar o Secret com valores reais.": [
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123082856
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123299373
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123302168
+      }
+    ],
+    "`kubectl apply -f k8s/api/ -n encurtador` sem erros de sintaxe.": [
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123082878
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123305174
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123308201
+      }
+    ],
+    "Após substituição de imagem real: `kubectl rollout status deployment/api -n encurtador`.": [
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123082899
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123311154
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123314195
+      }
+    ],
+    "`kubectl get svc api -n encurtador` mostra o Service.": [
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123082919
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123317170
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123320111
+      }
+    ],
+    "`kubectl apply -f k8s/frontend/ -n encurtador` sem erros de sintaxe.": [
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123082940
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123323147
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123326337
+      }
+    ],
+    "Após imagem real: `kubectl rollout status deployment/frontend -n encurtador`.": [
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123082967
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123329396
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123332325
+      }
+    ],
+    "`kubectl apply -f k8s/database/ -n encurtador` sem erros.": [
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123082987
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123335365
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123338196
+      }
+    ],
+    "`kubectl get statefulset -n encurtador` mostra o StatefulSet.": [
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123083014
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123341033
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123343881
+      }
+    ],
+    "Pod do banco atinge status `Running`.": [
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123083037
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123346719
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123349652
+      }
+    ],
+    "Frontend acessível pelo browser via URL/IP+porta do cluster.": [
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123083061
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123653901
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123656731
+      }
+    ],
+    "API acessível por `curl` via URL/IP+porta do cluster.": [
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123083084
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123659528
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123662279
+      }
+    ],
+    "Push de um arquivo em `api/` na branch `main` dispara o workflow.": [
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123083104
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123665026
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123667799
+      }
+    ],
+    "O workflow aparece na aba Actions do GitHub.": [
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123083128
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123670587
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123673434
+      }
+    ],
+    "Quando o Dockerfile da API existir: workflow conclui com sucesso e imagem aparece no registry.": [
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123083150
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123676409
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123680667
+      }
+    ],
+    "Push de um arquivo em `frontend/` dispara o workflow.": [
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123083170
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123683540
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123686431
+      }
+    ],
+    "Quando o Dockerfile do frontend existir: workflow conclui com sucesso.": [
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123083194
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123690881
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123693753
+      }
+    ],
+    "Após execução do CI, o arquivo `k8s/api/deployment.yaml` ou `k8s/frontend/deployment.yaml`": [
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123083214
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123696757
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123699748
+      }
+    ],
+    "O commit de atualização aparece no histórico do repositório.": [
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123083236
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123702565
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123705301
+      }
+    ],
+    "`kubectl apply -f k8s/base/argocd-app.yaml -n argocd` sem erros.": [
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123083255
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123708217
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123711263
+      }
+    ],
+    "A Application aparece na interface do ArgoCD com status `Synced`.": [
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123083281
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123714169
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123717032
+      }
+    ],
+    "ArgoCD detecta divergência em até 3 minutos após o commit.": [
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123083302
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123719815
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123722668
+      }
+    ],
+    "Status volta para `Synced` automaticamente sem `kubectl apply`.": [
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123083327
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123725546
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123728314
+      }
+    ],
+    "O label alterado aparece no recurso via `kubectl describe`.": [
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123083349
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123731118
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123733873
+      }
+    ],
+    "O workflow de CI conclui sem erros.": [
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123083369
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123736796
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123739675
+      }
+    ],
+    "A nova tag de imagem aparece no manifesto após o CI.": [
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123083388
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123742474
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123745215
+      }
+    ],
+    "O ArgoCD sincroniza automaticamente.": [
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123083415
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123748008
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123750979
+      }
+    ],
+    "`kubectl get pods -n encurtador` mostra todos os Pods em `Running`.": [
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123083436
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123754190
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123757087
+      }
+    ],
+    "A API responde em `/health` com status 200.": [
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123083459
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123760190
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792124064697
+      }
+    ],
+    "O frontend carrega no browser.": [
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792123083478
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792124067534
+      },
+      {
+        "executionId": "e803b040-1947-4659-846f-5443916cebc3",
+        "chatSessionId": "sess_a29947b3-4884-4c3f-819b-4061d105a042",
+        "timestamp": 1792124070665
+      }
+    ]
+  }
+}

@@ -72,6 +72,34 @@ Exemplo de como podemos organizar cada entrada.
 - **Evidência (opcional):** PR #__
 
 
+---
+
+## Registro 02 — Estrutura DevOps & GitOps (spec 02-devops-gitops)
+
+- **Data:** 2026-10-16
+- **Responsável:** Nome 1 (DevOps & GitOps Lead)
+- **Spec / tarefa:** 02-devops-gitops / requirements.md, design.md, tasks.md + implementação da estrutura base
+- **Objetivo:** Preparar todo o terreno de infraestrutura (Kubernetes, CI/CD, GitOps) antes de o backend e o frontend estarem prontos, de forma que a integração seja um encaixe simples.
+- **Prompt:** "Leia os arquivos md do projeto e o PDF do hackathon. Baseado no conceito de DevOps e na minha função de DevOps & GitOps Lead, quero que você deixe tudo pronto para que quando se tenha o backend e o restante do sistema, fique mais fácil de acrescentar minha parte de DevOps e fazer as integrações. Nesse momento você deve apenas deixar o terreno pronto."
+- **O que o Kiro produziu:**
+  - Spec completa `02-devops-gitops` (requirements.md, design.md, tasks.md) cobrindo Kubernetes, GitHub Actions e ArgoCD.
+  - Manifests Kubernetes: namespace, argocd-app, ingress, api (deployment+service+configmap), frontend (deployment+service), database (statefulset+service+secret placeholder).
+  - Workflows GitHub Actions: `ci-api.yaml` e `ci-frontend.yaml` com jobs de test (placeholder), build+push para GHCR e atualização automática de tags nos manifests.
+  - `.gitignore` protegendo secrets locais.
+  - `docs/devops-integration-guide.md` explicando para cada colega o que precisa ser feito para conectar seu trabalho ao pipeline.
+- **Revisão humana:** _A preencher após revisão do Nome 1._
+- **Verificações:** Não executadas nesta fase (terreno/skeleton sem aplicação real). Verificações definidas em tasks.md serão executadas após as decisões pendentes serem confirmadas.
+- **Decisões:** D-07 (proposta: mono-repo, YAML raw), D-10 (proposta: GHCR), Q-01 (proposta: Ingress), Q-02 (proposta: StatefulSet + PVC) — todas como `Proposta`, aguardando confirmação do time.
+- **Pendências / próximo passo:**
+  - Confirmar D-02, D-03, D-04, D-05, D-08, D-10, Q-01, Q-03 no SSOT.
+  - Ajustar os TODOs nos manifests conforme as decisões forem aprovadas.
+  - Backend criar `api/Dockerfile` e endpoint `/health`.
+  - Frontend criar `frontend/Dockerfile`.
+  - Criar o Secret do banco no cluster.
+  - Atualizar a URL do repositório em `k8s/base/argocd-app.yaml`.
+
+---
+
 ## Lições aprendidas (preencher ao longo do projeto)
 
 Aqui podemos anotar o que funcionou bem e o que não funcionou no uso do Kiro (tipos de prompt eficazes, erros recorrentes, regras de steering que ajudaram). Este trecho alimenta a parte "como o Kiro nos ajudou" do pitch.

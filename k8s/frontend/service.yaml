@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: encurtador
+  labels:
+    app: frontend
+    app.kubernetes.io/component: frontend
+spec:
+  # ClusterIP + Ingress é o padrão. Trocar para NodePort se não houver Ingress (Q-01).
+  type: ClusterIP
+  selector:
+    app: frontend
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      # Alinhar com a porta real do frontend (spec 01)
+      targetPort: 3000

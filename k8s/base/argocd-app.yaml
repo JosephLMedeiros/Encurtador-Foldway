@@ -1,0 +1,30 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: encurtador
+  namespace: argocd
+  # Para aplicar: kubectl apply -f k8s/base/argocd-app.yaml -n argocd
+  # Pré-requisito: ArgoCD instalado no cluster (Q-03)
+spec:
+  project: default
+
+  source:
+    # TODO: substituir pela URL real do repositório
+    repoURL: https://github.com/JosephLMedeiros/rascunho-encurtador.git
+    targetRevision: main
+    # Aponta para o diretório raiz de manifests — o ArgoCD aplica tudo recursivamente
+    path: k8s
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: encurtador
+
+  syncPolicy:
+    automated:
+      # Remove recursos que não existem mais no repositório
+      prune: true
+      # Reconcilia se alguém alterar o cluster manualmente
+      selfHeal: true
+    syncOptions:
+      # Cria o namespace automaticamente se não existir
+      - CreateNamespace=true
