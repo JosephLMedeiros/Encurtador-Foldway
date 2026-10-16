@@ -20,6 +20,27 @@ resources:
   - api/service.yaml
   - frontend/deployment.yaml
   - frontend/service.yaml
+  # Observabilidade (D-09): OTel Collector -> Tempo (traces); Prometheus (métricas); Grafana
+  - observability/otel-collector.yaml
+  - observability/tempo.yaml
+  - observability/prometheus.yaml
+  - observability/grafana.yaml
+
+# Configs geradas a partir de arquivos (os mesmos que o docker-compose monta).
+# O sufixo de hash no nome faz o pod reiniciar sozinho quando a config muda no Git.
+configMapGenerator:
+  - name: otel-collector-config
+    files: [observability/config/otel-collector.yaml]
+  - name: tempo-config
+    files: [observability/config/tempo.yaml]
+  - name: prometheus-config
+    files: [observability/config/prometheus.yaml]
+  - name: grafana-datasources
+    files: [observability/config/grafana-datasources.yaml]
+  - name: grafana-dashboard-provider
+    files: [observability/config/grafana-dashboards.yaml]
+  - name: grafana-dashboards
+    files: [observability/dashboards/kiro-portal.json]
 
 # O CI (GitHub Actions) atualiza newTag com o SHA do commit a cada build na main.
 # O ArgoCD detecta o commit e sincroniza o cluster (GitOps: Git é a fonte da verdade).

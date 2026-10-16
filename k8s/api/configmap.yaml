@@ -19,3 +19,9 @@ data:
 
   # Formato do código curto aleatório (D-06)
   SHORT_CODE_LENGTH: "7"
+
+  # OpenTelemetry (contrato: docs/otel-metrics-spec.md)
+  OTEL_SERVICE_NAME: "kiro-api"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4318"
+  OTEL_PROPAGATORS: "tracecontext,baggage"
+  OTEL_TRACES_SAMPLER: "parentbased_always_on"
