@@ -2,18 +2,15 @@ apiVersion: v1
 kind: Service
 metadata:
   name: database
-  namespace: encurtador
   labels:
     app: database
     app.kubernetes.io/component: database
 spec:
-  # ClusterIP: banco de dados NUNCA é exposto externamente
+  # ClusterIP: o banco NUNCA é exposto fora do cluster.
   type: ClusterIP
   selector:
     app: database
   ports:
-    - name: db
-      protocol: TCP
-      # PostgreSQL: 5432 | MySQL: 3306 | Redis: 6379 — ajustar conforme D-05
+    - name: postgres
       port: 5432
-      targetPort: 5432
+      targetPort: postgres

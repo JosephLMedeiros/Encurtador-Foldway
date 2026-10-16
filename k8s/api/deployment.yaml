@@ -2,7 +2,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: api
-  namespace: encurtador
   labels:
     app: api
     app.kubernetes.io/component: api
@@ -16,29 +15,23 @@ spec:
       labels:
         app: api
         app.kubernetes.io/component: api
-      # Descomente quando spec 03-observabilidade for implementada:
-      # annotations:
-      #   prometheus.io/scrape: "true"
-      #   prometheus.io/port: "8080"
-      #   prometheus.io/path: "/metrics"
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: api
-          # A tag é atualizada automaticamente pelo CI (GitHub Actions)
-          # Formato: ghcr.io/josephlmedeiros/rascunho-encurtador/api:SHA7
-          image: ghcr.io/josephlmedeiros/rascunho-encurtador/api:IMAGE_TAG_PLACEHOLDER
-
+          # A tag é definida em k8s/kustomization.yaml (images) e atualizada pelo CI.
+          image: ghcr.io/josephlmedeiros/rascunho-encurtador/api:latest
           ports:
             - name: http
               containerPort: 8080
-              protocol: TCP
-
-          # Variáveis não sensíveis vêm do ConfigMap
+          # Configuração não sensível: ConfigMap. Credenciais: Secret (nunca no ConfigMap).
           envFrom:
             - configMapRef:
                 name: api-config
-
-          # Credenciais do banco vêm do Secret (nunca no ConfigMap)
           env:
             - name: DB_USER
               valueFrom:
@@ -50,30 +43,44 @@ spec:
                 secretKeyRef:
                   name: db-credentials
                   key: DB_PASSWORD
-
-          # Liveness: reinicia o container se ficar não-responsivo
-          # Path /health deve ser implementado pela equipe de backend (spec 01)
+          # Startup: a API só abre a porta depois de conectar no banco e aplicar o schema (até ~60s).
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 2
+            failureThreshold: 40
+          # Liveness: processo vivo (não consulta o banco, para não reiniciar a API se o banco cair).
           livenessProbe:
             httpGet:
-              path: /health
-              port: 8080
-            initialDelaySeconds: 15
-            periodSeconds: 20
+              path: /healthz
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 2
             failureThreshold: 3
-
-          # Readiness: só envia tráfego quando a API estiver pronta
+          # Readiness: só recebe tráfego se o banco responder (SELECT 1 em até 2s).
           readinessProbe:
             httpGet:
-              path: /health
-              port: 8080
-            initialDelaySeconds: 5
-            periodSeconds: 10
+              path: /readyz
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
             failureThreshold: 3
-
           resources:
             requests:
-              cpu: "100m"
-              memory: "128Mi"
+              cpu: 100m
+              memory: 128Mi
             limits:
-              cpu: "500m"
-              memory: "256Mi"
+              cpu: 500m
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}

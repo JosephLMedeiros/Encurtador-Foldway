@@ -2,27 +2,20 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: api-config
-  namespace: encurtador
   labels:
     app: api
     app.kubernetes.io/component: api
 data:
-  # Porta em que a API escuta — alinhar com a equipe de backend (spec 01)
-  APP_PORT: "8080"
-
-  # Host interno do banco de dados (nome do Service do banco no cluster)
-  # O formato é <nome-do-service>.<namespace>.svc.cluster.local
-  DB_HOST: "database.encurtador.svc.cluster.local"
-
-  # Porta do banco — ajustar conforme D-05 (banco escolhido)
-  # PostgreSQL padrão: 5432 | MySQL: 3306 | Redis: 6379
+  # Banco: <service>.<namespace> resolvido pelo DNS do cluster (credenciais vêm do Secret db-credentials)
+  DB_HOST: "database"
   DB_PORT: "5432"
-
-  # Nome do banco de dados
   DB_NAME: "encurtador"
+  DB_POOL_MAX: "10"
 
-  # Nível de log da aplicação
-  LOG_LEVEL: "info"
+  # URL pública usada para montar short_url. Para a demo via port-forward do frontend:
+  #   kubectl -n encurtador port-forward svc/frontend 3000:80
+  # Troque pelo host real quando houver Ingress (D-02).
+  BASE_URL: "http://localhost:3000"
 
-  # Comprimento dos códigos curtos gerados (alinhar com D-06)
+  # Formato do código curto aleatório (D-06)
   SHORT_CODE_LENGTH: "7"

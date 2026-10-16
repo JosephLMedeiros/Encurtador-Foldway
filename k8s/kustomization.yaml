@@ -1,0 +1,30 @@
+# Ponto de entrada do GitOps: o ArgoCD aplica `kubectl kustomize k8s/`.
+# Validar localmente: kubectl kustomize k8s | kubectl apply --dry-run=client -f -
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: encurtador
+
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: kiro-portal
+    includeSelectors: false
+
+resources:
+  - base/namespace.yaml
+  # - base/ingress.yaml   # habilite quando o cluster tiver um Ingress Controller (D-02)
+  - database/secret.yaml
+  - database/service.yaml
+  - database/statefulset.yaml
+  - api/configmap.yaml
+  - api/deployment.yaml
+  - api/service.yaml
+  - frontend/deployment.yaml
+  - frontend/service.yaml
+
+# O CI (GitHub Actions) atualiza newTag com o SHA do commit a cada build na main.
+# O ArgoCD detecta o commit e sincroniza o cluster (GitOps: Git é a fonte da verdade).
+images:
+  - name: ghcr.io/josephlmedeiros/rascunho-encurtador/api
+    newTag: latest
+  - name: ghcr.io/josephlmedeiros/rascunho-encurtador/frontend
+    newTag: latest
