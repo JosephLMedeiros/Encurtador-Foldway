@@ -146,3 +146,29 @@ def test_database_down_returns_503(client):
         assert client.get("/healthz").status_code == 200  # liveness não depende do banco
     finally:
         client.app.state.repo = real
+
+
+# ---------- Analytics (base das features exclusivas) ----------
+
+def test_stats_has_hourly_series_and_referer_is_recorded(client, sql):
+    create(client, custom_code="serie")
+    for _ in range(3):
+        client.get("/r/serie", headers={"referer": "https://instagram.com/"})
+    body = client.get("/api/links/serie/stats").json()
+    assert sum(p["clicks"] for p in body["last_24h"]) == 3
+    assert sql("SELECT DISTINCT referer FROM click_events") == [("https://instagram.com/",)]
+
+
+def test_ranking_orders_by_clicks_in_window(client, sql):
+    for code, clicks in [("bronze", 1), ("ouro", 3), ("prata", 2), ("zero", 0)]:
+        create(client, custom_code=code)
+        for _ in range(clicks):
+            client.get(f"/r/{code}")
+    # clique antigo fora da janela de 24h não conta
+    sql("INSERT INTO click_events (link_id, clicked_at) "
+        "SELECT id, now() - interval '2 days' FROM links WHERE short_code = 'bronze'")
+    body = client.get("/api/ranking").json()
+    assert [(i["position"], i["short_code"], i["clicks"]) for i in body["items"]] == [
+        (1, "ouro", 3), (2, "prata", 2), (3, "bronze", 1)]
+    assert client.get("/api/ranking?hours=0").status_code == 400
+    assert client.get("/api/ranking?limit=51").status_code == 400

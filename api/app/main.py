@@ -20,6 +20,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 log = logging.getLogger("kiro-api")
 
 MAX_LIMIT = 200
+MAX_RANKING_HOURS = 24 * 30
 MAX_GENERATION_ATTEMPTS = 5
 
 
@@ -149,10 +150,26 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if not shortcode.is_valid_code(short_code):
             return error(400, "invalid_code", "código com formato inválido")
         telemetry.tag_short_code(short_code)
-        row = repo(request).get(short_code)
+        links = repo(request)
+        row = links.get(short_code)
         if row is None:
             return error(404, "not_found", "link não encontrado")
-        return serialize(row)
+        telemetry.feature_used("stats")
+        series = links.clicks_by_hour(short_code, 24)
+        return {**serialize(row), "last_24h": [
+            {"hour": p["hour"].isoformat(), "clicks": p["clicks"]} for p in series]}
+
+    @app.get("/api/ranking")
+    def ranking(request: Request, hours: int = 24, limit: int = 10):
+        if not 1 <= hours <= MAX_RANKING_HOURS or not 1 <= limit <= 50:
+            return error(400, "invalid_ranking",
+                         f"hours deve estar entre 1 e {MAX_RANKING_HOURS} e limit entre 1 e 50")
+        telemetry.feature_used("ranking")
+        rows = repo(request).ranking(hours, limit)
+        return {"hours": hours, "items": [
+            {"position": i, "short_code": r["short_code"], "short_url": short_url(r["short_code"]),
+             "original_url": r["original_url"], "clicks": r["clicks"]}
+            for i, r in enumerate(rows, start=1)]}
 
     # ---------- Redirect ----------
 
@@ -162,7 +179,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         telemetry.tag_short_code(short_code)
         links = repo(request)
         started = time.perf_counter()
-        url = links.register_click(short_code, request.headers.get("user-agent"))
+        url = links.register_click(short_code, request.headers.get("user-agent"),
+                                   request.headers.get("referer"))
         if url is None:
             outcome = "expired" if links.exists(short_code) else "not_found"
             telemetry.redirect_finished(time.perf_counter() - started, outcome)

@@ -36,11 +36,14 @@ EXCLUDED_URLS = "/healthz$,/readyz$,/metrics$"
 
 _initialized = False
 _active_links_source: Callable[[], int] | None = None
-_links_created = _link_clicks = _redirect_duration = None
+_links_created = _link_clicks = _redirect_duration = _feature_used = None
+
+# Valores permitidos para o atributo "feature" (cardinalidade fixa). Adicione aqui cada feature nova.
+FEATURES = frozenset({"stats", "ranking"})
 
 
 def _setup_providers() -> None:
-    global _initialized, _links_created, _link_clicks, _redirect_duration
+    global _initialized, _links_created, _link_clicks, _redirect_duration, _feature_used
     if _initialized:
         return
     resource = Resource.create({"service.name": SERVICE_NAME})
@@ -71,6 +74,8 @@ def _setup_providers() -> None:
     _redirect_duration = meter.create_histogram(
         "kiro.link.redirect.duration", unit="s",
         description="Busca no banco + decisão do redirect (outcome=found|not_found|expired)")
+    _feature_used = meter.create_counter(
+        "kiro.feature.used", description="Uso das features do portal (feature=<nome fixo>)")
     meter.create_observable_gauge(
         "kiro.active_links", callbacks=[_observe_active_links],
         description="Links ativos (view active_links)")
@@ -117,6 +122,12 @@ def link_clicked() -> None:
 
 def redirect_finished(seconds: float, outcome: str) -> None:
     _redirect_duration.record(seconds, {"outcome": outcome})
+
+
+def feature_used(feature: str) -> None:
+    if feature not in FEATURES:
+        raise ValueError(f"feature desconhecida: {feature} (cadastre em telemetry.FEATURES)")
+    _feature_used.add(1, {"feature": feature})
 
 
 def tag_short_code(code: str) -> None:

@@ -53,3 +53,8 @@ def test_trace_has_db_span_as_child_of_server_span(client, spans):
     assert all(s.context.trace_id == root.context.trace_id for s in db)
     assert any(s.attributes.get("db.system") == "postgresql" or
                s.attributes.get("db.system.name") == "postgresql" for s in db)
+
+
+def test_feature_usage_metric(client):
+    client.get("/api/ranking")
+    assert 'kiro_feature_used_total{feature="ranking"' in client.get("/metrics").text

@@ -30,3 +30,6 @@ CREATE TABLE IF NOT EXISTS click_events (
 
 CREATE INDEX IF NOT EXISTS idx_click_events_link_time ON click_events(link_id, clicked_at DESC);
 CREATE INDEX IF NOT EXISTS idx_click_events_time ON click_events(clicked_at DESC);
+
+-- Origem do clique (header Referer), base para analytics das features exclusivas.
+ALTER TABLE click_events ADD COLUMN IF NOT EXISTS referer TEXT;

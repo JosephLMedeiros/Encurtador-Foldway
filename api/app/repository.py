@@ -46,7 +46,8 @@ class LinkRepository:
                 f"SELECT {LINK_COLUMNS} FROM links WHERE short_code = %s", (code,)
             ).fetchone()
 
-    def register_click(self, code: str, user_agent: str | None) -> str | None:
+    def register_click(self, code: str, user_agent: str | None,
+                       referer: str | None = None) -> str | None:
         """Conta o clique e registra o evento num único statement atômico.
 
         Só considera links ativos (view active_links). Retorna a URL de destino ou None.
@@ -58,11 +59,11 @@ class LinkRepository:
                        WHERE id = (SELECT id FROM active_links WHERE short_code = %(code)s)
                        RETURNING id, original_url
                    ), event AS (
-                       INSERT INTO click_events (link_id, user_agent)
-                       SELECT id, %(ua)s FROM hit
+                       INSERT INTO click_events (link_id, user_agent, referer)
+                       SELECT id, %(ua)s, %(referer)s FROM hit
                    )
                    SELECT original_url FROM hit""",
-                {"code": code, "ua": user_agent},
+                {"code": code, "ua": user_agent, "referer": referer},
             ).fetchone()
         return row["original_url"] if row else None
 
@@ -75,3 +76,27 @@ class LinkRepository:
     def count_active(self) -> int:
         with self.pool.connection(timeout=2) as conn:
             return conn.execute("SELECT count(*) AS n FROM active_links").fetchone()["n"]
+
+    # ---------- Analytics (base para as features exclusivas) ----------
+
+    def clicks_by_hour(self, code: str, hours: int) -> list[Row]:
+        with self.pool.connection() as conn:
+            return conn.execute(
+                """SELECT date_trunc('hour', e.clicked_at) AS hour, count(*)::int AS clicks
+                   FROM click_events e JOIN links l ON l.id = e.link_id
+                   WHERE l.short_code = %s
+                     AND e.clicked_at > now() - make_interval(hours => %s)
+                   GROUP BY 1 ORDER BY 1""",
+                (code, hours),
+            ).fetchall()
+
+    def ranking(self, hours: int, limit: int) -> list[Row]:
+        """Links mais clicados na janela (ranking do "link do dia")."""
+        with self.pool.connection() as conn:
+            return conn.execute(
+                """SELECT l.short_code, l.original_url, count(*)::int AS clicks
+                   FROM click_events e JOIN links l ON l.id = e.link_id
+                   WHERE e.clicked_at > now() - make_interval(hours => %s)
+                   GROUP BY l.id ORDER BY clicks DESC, l.short_code LIMIT %s""",
+                (hours, limit),
+            ).fetchall()

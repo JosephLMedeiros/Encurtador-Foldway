@@ -20,6 +20,7 @@ Este documento é o contrato de telemetria entre API, frontend, infraestrutura e
 | `kiro.link.clicks` | `kiro_link_clicks_total` | Counter | nenhum | Manual. +1 a cada redirect bem-sucedido (302). |
 | `kiro.links.created` | `kiro_links_created_total` | Counter | `kind`: `random` \| `vanity` | Manual. +1 a cada link criado (201). |
 | `kiro.active_links` | `kiro_active_links` | Gauge (observável) | nenhum | Manual. Callback que executa `SELECT count(*) FROM active_links;` a cada coleta. |
+| `kiro.feature.used` | `kiro_feature_used_total` | Counter | `feature`: valor fixo cadastrado em `api/app/telemetry.py` (`FEATURES`) | Manual. +1 a cada uso de uma feature do portal (`stats`, `ranking`, e as features exclusivas que vierem). |
 
 Desejável (se a instrumentação do driver do banco oferecer): `db.client.operation.duration` (Histogram, s), com `db.operation.name`.
 
