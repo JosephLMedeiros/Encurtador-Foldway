@@ -105,10 +105,10 @@ A solução deverá integrar esses componentes à infraestrutura Kubernetes, ao 
 | D-04 | Frontend | Pendente | | | |
 | D-05 | Banco de dados | Confirmada | 2026-10-16 | PostgreSQL 16 (schema em `api/app/schema.sql`, aplicado pela API com advisory lock). | Diêgo (aguardando ciência de Abby e Lucas) |
 | D-06 | Formato do código curto | Proposta | 2026-10-16 | Aleatório: 7 caracteres `[a-z0-9]` (configurável). Personalizado: 3-50 `[A-Za-z0-9_-]`. Redirect canônico em `/r/{code}`, com `/{code}` aceito por compatibilidade. | |
-| D-07 | Organização do repositório GitOps | Pendente | | | |
+| D-07 | Organização do repositório GitOps | Proposta | 2026-10-16 | Monorepo; `k8s/kustomization.yaml` como fonte do ArgoCD (path `k8s`, branch `main`); o CI atualiza `images.newTag` por commit. | |
 | D-08 | Identidade (nome, personagem, tema, features) | Pendente | | | |
 | D-09 | Ferramentas e configuração de observabilidade (coleta, armazenamento de traces e métricas, dashboards) | Confirmada | 2026-10-15| OpenTelemetry Collector (OTLP), Tempo (traces), Prometheus (métricas) e Grafana (dashboards). Alternativa descartada: Jaeger. Detalhes de implantação ficam no design da spec 04 | Abby e Diêgo|
-| D-10 | Registry de imagens de contêiner | Pendente | | | |
+| D-10 | Registry de imagens de contêiner | Proposta | 2026-10-16 | GHCR (`ghcr.io/<owner>/<repo>/{api,frontend}`), autenticado pelo GITHUB_TOKEN do Actions; pacotes precisam ser públicos ou usar imagePullSecret. | |
 
 Estados possíveis:
 

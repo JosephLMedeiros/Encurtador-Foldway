@@ -100,6 +100,52 @@ Exemplo de como podemos organizar cada entrada.
 
 ---
 
+## Registro 03 — Implementação Python: API, Kubernetes, CI/CD e observabilidade
+
+- **Data:** 2026-10-16
+- **Responsável:** Diêgo
+- **Ferramenta:** Claude Code (assistente de IA no VS Code), a partir dos contratos produzidos com o Kiro
+- **Spec / tarefa:** 01-backend-api (reimplementada em Python), 02-devops-gitops, 04-observabilidade
+- **Objetivo:** Sair dos contratos e do esqueleto de infra para uma stack funcionando de ponta a ponta.
+- **Prompt (resumo fiel):** "Investigue todas as branches e proponha um plano, sem alterar nada. Depois, em branches novas, com um commit por etapa: API (slug opcional, listar, redirect 302 contando cliques, /healthz e /readyz) com testes; Dockerfiles e compose; manifests kustomize; frontend placeholder nginx; GitHub Actions + ArgoCD; OpenTelemetry + Collector, Tempo, Prometheus e Grafana; estrutura para features; README. Backend em Python e banco Postgres. Nunca colocar senhas reais; validar tudo e dizer o que não foi testado."
+- **O que a IA produziu:**
+  - Branch `feat/backend-python`: API FastAPI + psycopg 3, schema único, telemetria conforme `otel-metrics-spec.md`, analytics (ranking e série por hora) e 43 testes.
+  - Branch `feat/devops-gitops-python`: manifests kustomize (reaproveitando a estrutura da branch de DevOps), frontend nginx com OTel, pipeline `ci-cd.yaml`, Application do ArgoCD, stack de observabilidade, dashboard, scripts de demo e README.
+- **Revisão humana / problemas encontrados e corrigidos:**
+  - A branch de DevOps tinha probes em `/health` (o contrato define `/healthz` e `/readyz`), um Secret com base64 inválido, um Ingress com `rewrite-target: /` que quebrava `/api` e uma imagem com maiúsculas no GHCR. Tudo foi corrigido.
+  - Os dois workflows faziam push concorrente das tags e foram unificados num pipeline.
+  - **Erro da IA:** o método `list` do repositório sombreava o builtin. Os testes passavam no Python 3.14 local e quebravam no 3.12 da imagem. Desde então, os testes rodam também em 3.12.
+  - **Erro da IA:** o `startupProbe` (80s) matava a API no primeiro boot do Postgres no kind. O orçamento subiu para 120s, acima da espera interna de 60s.
+  - Os traces tinham spans soltos do `/readyz` e spans internos do ASGI. Foram suprimidos, com teste.
+  - O mapa de serviços do Tempo não liga nginx → API (o nginx só emite spans SERVER). O painel foi trocado por "spans por componente".
+  - Pelos traces, o p95 do redirect estava em centenas de ms. A causa era o fsync do commit no disco do Docker/WSL. Com `synchronous_commit off` só no clique, o pior caso caiu de ~1s para ~12 ms.
+- **Verificações:**
+  - pytest com 43 testes passando em Python 3.14 (local) e 3.12 (container).
+  - docker compose com a stack completa: trace navegador → nginx → API → Postgres no Tempo e os painéis do dashboard consultados via API do Grafana.
+  - Cluster kind: todos os pods Ready, probes testadas com o banco desligado, persistência no PVC e Prometheus coletando as 2 réplicas.
+  - actionlint, kubeconform (incluindo o CRD do ArgoCD) e shellcheck.
+- **Não verificado:** a execução real no GitHub Actions/GHCR e o ArgoCD sincronizando a partir do repositório (depende do merge na `main` e de um cluster com ArgoCD).
+- **Decisões:** D-03 Python/FastAPI e D-05 Postgres (confirmadas por Diêgo, aguardando ciência de Abby e Lucas); D-06, D-07 e D-10 como proposta.
+- **Pendências / próximo passo:** revisar e mesclar as branches; revisar a spec `01-backend-api` (escrita para Node); definir a identidade (D-08); construir o frontend real.
+
+---
+
+## Tabela de prompts e decisões (preencher durante o projeto)
+
+Uma linha por interação relevante com o Kiro (ou outra IA). Este é o material da parte "como o Kiro ajudou" do pitch.
+
+| # | Data | Quem | Ferramenta | Área | Prompt (resumo) | Resultado | Revisão humana (aceito / corrigido / rejeitado e por quê) | Decisão / ID |
+|---|---|---|---|---|---|---|---|---|
+| 1 | 2026-10-15 | | Kiro | Spec backend | | | | D-03 |
+| 2 | 2026-10-15 | | Kiro | Spec DevOps | | | | D-07, D-10 |
+| 3 | 2026-10-15 | | Kiro | Observabilidade | | | | D-09 |
+| 4 | 2026-10-16 | Diêgo | Claude Code | API + infra + observabilidade | Ver Registro 03 | Ver Registro 03 | Ver Registro 03 | D-03, D-05 |
+| 5 | | | Kiro | Identidade / personagem | | | | D-08 |
+| 6 | | | Kiro | Frontend | | | | D-04 |
+| 7 | | | Kiro | Feature exclusiva | | | | |
+
+---
+
 ## Lições aprendidas (preencher ao longo do projeto)
 
 Aqui podemos anotar o que funcionou bem e o que não funcionou no uso do Kiro (tipos de prompt eficazes, erros recorrentes, regras de steering que ajudaram). Este trecho alimenta a parte "como o Kiro nos ajudou" do pitch.

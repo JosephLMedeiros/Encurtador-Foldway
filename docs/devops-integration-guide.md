@@ -1,3 +1,7 @@
+> **Atualização 2026-10-16:** este guia descreve o esqueleto inicial. A integração foi concluída na branch
+> `feat/devops-gitops-python`: pipeline único `ci-cd.yaml`, kustomize em `k8s/` e Application em `argocd/`.
+> Veja o README para o estado atual.
+
 # Guia de Integração DevOps — Para o Time
 
 Este documento explica o que já está pronto na infraestrutura e **o que cada pessoa do time
