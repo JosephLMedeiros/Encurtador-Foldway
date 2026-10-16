@@ -51,8 +51,13 @@ class LinkRepository:
         """Conta o clique e registra o evento num único statement atômico.
 
         Só considera links ativos (view active_links). Retorna a URL de destino ou None.
+
+        synchronous_commit off só nesta transação: o redirect não espera o fsync do WAL.
+        Num crash do Postgres perde-se no máximo uma fração de segundo de cliques (analytics);
+        a criação de links continua com commit durável.
         """
-        with self.pool.connection() as conn:
+        with self.pool.connection() as conn, conn.transaction():
+            conn.execute("SET LOCAL synchronous_commit TO off")
             row = conn.execute(
                 """WITH hit AS (
                        UPDATE links SET clicks = clicks + 1
