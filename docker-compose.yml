@@ -1,5 +1,5 @@
-# Ambiente local: mesmos nomes de serviço usados no Kubernetes (database, api).
-# Uso: docker compose up --build
+# Ambiente local: mesmos nomes de serviço usados no Kubernetes (database, api, frontend).
+# Uso: docker compose up --build   ->  http://localhost:3000
 name: kiro-portal
 
 services:
@@ -26,7 +26,7 @@ services:
       DB_NAME: encurtador
       DB_USER: kiro
       DB_PASSWORD: ${DB_PASSWORD:-troque-esta-senha}
-      BASE_URL: http://localhost:8080
+      BASE_URL: http://localhost:3000   # links curtos passam pelo frontend (nginx -> /r)
     ports:
       - "8080:8080"
     depends_on:
@@ -37,6 +37,15 @@ services:
       interval: 5s
       timeout: 3s
       retries: 12
+
+  frontend:
+    build: ./frontend
+    image: kiro-frontend:dev
+    ports:
+      - "3000:8080"
+    depends_on:
+      api:
+        condition: service_healthy
 
 volumes:
   pgdata:
