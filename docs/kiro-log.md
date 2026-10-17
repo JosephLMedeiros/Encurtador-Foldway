@@ -130,6 +130,39 @@ Exemplo de como podemos organizar cada entrada.
 
 ---
 
+## Registro 04 — Integração do frontend, QR Code e CI do frontend
+
+- **Data:** 2026-10-17
+- **Responsável:** Diêgo
+- **Ferramenta:** Claude Code (assistente de IA no VS Code)
+- **Spec / tarefa:** integração do frontend do Joseph (`feat/frontend-joseph`) com a API Python; feature exclusiva; GitHub Actions
+- **Objetivo:** Deixar o sistema funcionando com o frontend real, simplificar o código e entregar a feature do QR Code.
+- **Prompt (resumo fiel):** "Integre a branch do frontend e torne o sistema funcional. Verifique o código do frontend e simplifique o que for desnecessário. Faça o GitHub Actions do projeto. O recurso extra é um QR Code que leva ao link encurtado, com visual combinando com o frontend."
+- **O que a IA produziu:**
+  - Branch `feat/frontend-integracao` (a partir de `feat/devops-gitops-python`), com merge da branch do Joseph preservando o histórico.
+  - `api.js` falando com a API real e convertendo o contrato; proxy do Vite em desenvolvimento; rota `/r/:code` para link inexistente ou expirado (D-11 a D-13).
+  - Simplificação: mock, variáveis `VITE_*`, arquivos `.env`, testes sem valor, CSS duplicado de botões e comentários de desabilitar o stylelint removidos (o frontend ficou cerca de 350 linhas menor).
+  - QR Code (D-17) com o origami no centro e download em PNG, apontando para `/r/{code}?via=qr`; a API conta `kiro_feature_used_total{feature="qrcode"}`.
+  - Tracing do navegador portado do placeholder para `src/api/tracing.js` (D-14).
+  - Dockerfile multi-stage, nginx com cache e gzip, e job `test-frontend` no `ci-cd.yaml`.
+- **Revisão humana / problemas encontrados e corrigidos:**
+  - O contrato provisório do frontend (`{ url }`, lista como array, `body.error` como mensagem) não batia com a API; a conversão ficou só no `api.js`.
+  - **Erro da IA:** a primeira resolução do conflito no `SSOT.md` rodou sem Python no PATH e o merge foi commitado com marcadores de conflito. Foi detectado na hora e o commit de merge (ainda local) foi refeito.
+  - **Erro da IA:** um commit da API levou junto arquivos do frontend que já estavam no índice. Foi desfeito (ainda local) e refeito separado.
+  - Remover o placeholder apagaria os spans `kiro-browser` usados por um painel do dashboard; o tracing foi portado para o app React.
+  - No runner Linux, `stylelint src/**/*.css` sem aspas não desce até os CSS dos componentes; o glob foi colocado entre aspas.
+  - Coral nos módulos do QR ficaria perto do limiar de leitura das câmeras; os módulos ficaram em índigo e o coral só no origami central.
+- **Verificações:**
+  - Frontend: 92 testes (incluindo axe e decodificação real do QR com `jsqr` em URLs curtas e longas), ESLint e stylelint; os mesmos passos do CI rodados num container Linux com Node 22.
+  - API: 44 testes com Postgres.
+  - docker compose com a stack completa: criação, redirect pelo QR (302 e métrica `qrcode` contada), `/r/inexistente` com 404 e a tela do Furl, spans `kiro-browser`, `kiro-frontend` e `kiro-api` no Prometheus (span metrics).
+  - Navegador (Edge headless): fluxo de criação com a animação, QR no resultado e na lista, PNG baixado decodificado de volta para a URL certa, layout em 390 px.
+  - actionlint no workflow.
+- **Não verificado:** leitura do QR por câmera de celular (validado só por decodificador); execução do deploy na `main` (GHCR e commit da tag) e o ArgoCD sincronizando.
+- **Decisões:** D-11 a D-14 e D-17 registradas como proposta, aguardando aprovação do Joseph.
+
+---
+
 ## Tabela de prompts e decisões (preencher durante o projeto)
 
 Uma linha por interação relevante com o Kiro (ou outra IA). Este é o material da parte "como o Kiro ajudou" do pitch.
@@ -142,7 +175,8 @@ Uma linha por interação relevante com o Kiro (ou outra IA). Este é o material
 | 4 | 2026-10-16 | Diêgo | Claude Code | API + infra + observabilidade | Ver Registro 03 | Ver Registro 03 | Ver Registro 03 | D-03, D-05 |
 | 5 | | | Kiro | Identidade / personagem | | | | D-08 |
 | 6 | | | Kiro | Frontend | | | | D-04 |
-| 7 | | | Kiro | Feature exclusiva | | | | |
+| 6b | 2026-10-17 | Diêgo | Claude Code | Integração do frontend + CI | Ver Registro 04 | Ver Registro 04 | Ver Registro 04 | D-11 a D-14 |
+| 7 | 2026-10-17 | Diêgo | Claude Code | Feature exclusiva (QR Code) | Ver Registro 04 | Ver Registro 04 | Ver Registro 04 | D-17 |
 
 ---
 
