@@ -1,9 +1,6 @@
 # Application do ArgoCD: o repositório é a fonte da verdade do namespace "encurtador".
-# Pré-requisito: ArgoCD instalado no cluster
-#   kubectl create namespace argocd
-#   kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
-# Aplicar (uma única vez; depois disso, tudo chega pelo Git):
-#   kubectl apply -n argocd -f argocd/application.yaml
+# Instalação do ArgoCD + esta Application (uma única vez; depois disso, tudo chega pelo Git):
+#   scripts/argocd-up.sh
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
