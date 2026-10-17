@@ -102,13 +102,19 @@ A solução deverá integrar esses componentes à infraestrutura Kubernetes, ao 
 | D-01 | Stack obrigatória: Kubernetes, GitHub Actions, ArgoCD, OpenTelemetry, Grafana | Confirmada | 2026-10-13 | Definida pelo enunciado | — |
 | D-02 | Ambiente Kubernetes (local ou cluster do bootcamp) | Pendente | | | |
 | D-03 | Tecnologia da API | Confirmada | 2026-10-16 | Python 3.12 + FastAPI + psycopg 3 (substitui a decisão de 2026-10-15 por Node.js). FastAPI dá validação e OpenAPI nativos e tem instrumentação OTel oficial; a spec 01-backend-api (escrita para Node/Fastify) precisa ser revisada. | Diêgo (aguardando ciência de Abby e Lucas) |
-| D-04 | Frontend | Pendente | | | |
+| D-04 | Frontend: React + Vite, JavaScript (sem TypeScript), React Router, CSS puro com variáveis de tema, animações em CSS e SVG, API mockada atrás de um único módulo (`api.js`) | Confirmada | 2026-10-15 | Proposta pelo responsável pelo frontend, É a stack que ele conhece e facilita a revisão do código gerado pelo Kiro. | — |
 | D-05 | Banco de dados | Confirmada | 2026-10-16 | PostgreSQL 16 (schema em `api/app/schema.sql`, aplicado pela API com advisory lock). | Diêgo (aguardando ciência de Abby e Lucas) |
 | D-06 | Formato do código curto | Proposta | 2026-10-16 | Aleatório: 7 caracteres `[a-z0-9]` (configurável). Personalizado: 3-50 `[A-Za-z0-9_-]`. Redirect canônico em `/r/{code}`, com `/{code}` aceito por compatibilidade. | |
 | D-07 | Organização do repositório GitOps | Proposta | 2026-10-16 | Monorepo; `k8s/kustomization.yaml` como fonte do ArgoCD (path `k8s`, branch `main`); o CI atualiza `images.newTag` por commit. | |
-| D-08 | Identidade (nome, personagem, tema, features) | Pendente | | | |
+| D-08 | Mascote (personagem): Furl, o artista que dobra os atalhos (arte final em `public/mascot/*.webp`) | Proposta | | Candidatos: Furl (artista que dobra o espaço) e gatinho da caixa (estilo chibi/cartoon). O frontend trata o mascote como componente trocável | |
 | D-09 | Ferramentas e configuração de observabilidade (coleta, armazenamento de traces e métricas, dashboards) | Confirmada | 2026-10-15| OpenTelemetry Collector (OTLP), Tempo (traces), Prometheus (métricas) e Grafana (dashboards). Alternativa descartada: Jaeger. Detalhes de implantação ficam no design da spec 04 | Abby e Diêgo|
 | D-10 | Registry de imagens de contêiner | Proposta | 2026-10-16 | GHCR (`ghcr.io/<owner>/<repo>/{api,frontend}`), autenticado pelo GITHUB_TOKEN do Actions; pacotes precisam ser públicos ou usar imagePullSecret. | |
+| D-11 | Contrato da API usado pelo frontend: `POST /api/links` com `{ url }` → 201 `{ shortCode, shortUrl, originalUrl, createdAt }`; `GET /api/links` → 200 `[{ shortCode, originalUrl, createdAt, clicks }]`; erro de validação → 400 `{ error }`; código inexistente → 404 | Proposta | | Padrão de trabalho do frontend, adotado sem alinhamento prévio com a API (D-03). Se a API real divergir, a adaptação fica restrita a `api.js` | |
+| D-12 | Roteamento das telas do visitante (link inexistente, expirado) | Pendente | | Opções: a API redireciona para uma rota do frontend, ou o Ingress envia o caminho do código curto ao frontend | |
+| D-13 | Comunicação do frontend com a API (proxy no nginx, Ingress com caminhos separados ou CORS) | Pendente | | Depende de D-02 e de quem cuida do Kubernetes | |
+| D-14 | OpenTelemetry no navegador (instrumentação e endereço do Collector acessível ao frontend) | Pendente | | Depende de D-09 | |
+| D-15 | Paleta visual: Índigo, papel e coral, em versão clara (fundo `--color-mist`, texto índigo) | Proposta | | Índigo #14182B, azul-ardósia #2C3A5E, branco-papel #F7F3EA, kraft #CDB28A, coral #F2553D, ciano #2DE2E6 (valores de referência) | |
+| D-16 | Nome do portal: **Foldway** (features exclusivas ainda pendentes) | Proposta | | | |
 
 Estados possíveis:
 
@@ -147,7 +153,7 @@ Os critérios específicos de aceitação e verificação deverão ser definidos
 4. O código e a infraestrutura devem ser revisados e verificados conforme os critérios de aceitação aplicáveis.
 5. O uso do Kiro deve ser acompanhado de revisão humana e registro das decisões relevantes.
 6. O grupo deve manter a documentação alinhada à implementação, evitando divergências entre requisitos, design, tarefas e código.
-7. Podem aprovar documentos e decisões: <>.
+7. Podem aprovar documentos e decisões: Joseph Roberto.
 
 ## 11. Referências do projeto
 

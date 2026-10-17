@@ -1,0 +1,36 @@
+/* ─── CopyButton ─────────────────────────────────────────────────────────── */
+
+/* stylelint-disable selector-class-pattern */
+
+/* Razão: modificador BEM "--copied" — intencional. */
+
+/* Botão contornado em índigo: o coral fica reservado para os origamis */
+.copy-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.3rem 0.85rem;
+  background-color: transparent;
+  color: var(--color-text);
+  border: 1.5px solid var(--color-text);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 600;
+  font-family: inherit;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.copy-button:hover {
+  background-color: var(--color-text);
+  color: var(--color-surface);
+}
+
+.copy-button--copied,
+.copy-button--copied:hover {
+  background-color: var(--color-highlight);
+  border-color: var(--color-highlight);
+  color: var(--color-text); /* índigo sobre ciano — contraste alto */
+}
+
+/* stylelint-enable selector-class-pattern */

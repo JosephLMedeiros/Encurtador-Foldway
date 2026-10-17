@@ -1,0 +1,156 @@
+/* ─── LinkForm ───────────────────────────────────────────────────────────── */
+/* stylelint-disable selector-class-pattern */
+
+/* Cartão com o canto superior direito dobrado (a assinatura do Foldway) */
+.link-form {
+  position: relative;
+  width: 100%;
+  padding: 1.5rem;
+  background-color: var(--color-surface-soft);
+  backdrop-filter: blur(6px);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-card);
+  box-shadow: 0 18px 44px var(--color-shadow);
+  clip-path: polygon(0 0, calc(100% - var(--fold)) 0, 100% var(--fold), 100% 100%, 0 100%);
+}
+
+.link-form::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: var(--fold);
+  height: var(--fold);
+  background: linear-gradient(to bottom left, transparent 50%, var(--color-line) 50%);
+}
+
+.link-form form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "field submit";
+  align-items: end;
+  gap: 0.75rem 1rem;
+}
+
+.link-form__field {
+  grid-area: field;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.link-form__label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-secondary);
+}
+
+/* O campo é o "papel bruto": kraft claro, com tinta escura */
+.link-form__input {
+  width: 100%;
+  padding: 0.85rem 1rem;
+  background-color: color-mix(in srgb, var(--color-kraft) 42%, var(--color-white));
+  color: var(--color-text);
+  border: 2px solid transparent;
+  border-radius: var(--radius-control);
+  font-size: 1rem;
+  font-family: inherit;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.link-form__input::placeholder {
+  color: var(--color-placeholder);
+  opacity: 0.8;
+}
+
+.link-form__input:focus-visible {
+  border-color: var(--color-muted);
+  box-shadow: 0 0 0 4px var(--color-cyan-glow);
+  outline: none;
+}
+
+.link-form__input:disabled {
+  opacity: 0.7;
+}
+
+.link-form__error {
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--color-text);
+  padding-left: 0.75rem;
+  border-left: 3px solid var(--color-accent);
+}
+
+/* Botão coral com canto dobrado */
+.link-form__submit {
+  grid-area: submit;
+  padding: 0.95rem 1.75rem;
+  background-color: var(--color-accent);
+  color: var(--color-on-accent);
+  border: none;
+  border-radius: var(--radius-control);
+  font-size: 1.0625rem;
+  font-weight: 800;
+  font-family: inherit;
+  cursor: pointer;
+  clip-path: polygon(0 0, calc(100% - var(--fold)) 0, 100% var(--fold), 100% 100%, 0 100%);
+  transition: filter 0.15s ease, transform 0.15s ease;
+}
+
+.link-form__submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.link-form__submit:hover:not(:disabled) {
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+}
+
+@media (width < 560px) {
+  .link-form form {
+    grid-template-columns: 1fr;
+    grid-template-areas: "field" "submit";
+  }
+}
+
+/* Resultado: o origami pronto */
+.link-form__result {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-top: 1.25rem;
+  padding: 1rem;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-highlight);
+  border-radius: var(--radius-control);
+  box-shadow: 0 0 28px var(--color-cyan-glow);
+  animation: result-in 0.4s ease-out;
+}
+
+.link-form__short-url {
+  padding: 0.3rem 0.8rem;
+  background-color: var(--color-accent);
+  color: var(--color-on-accent);
+  font-size: 1.0625rem;
+  font-weight: 700;
+  word-break: break-all;
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%);
+}
+
+/* Enquanto o origami voa, o resultado já existe (acessível), só ainda não aparece */
+.link-form__result--pending {
+  opacity: 0;
+}
+
+@keyframes result-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+/* stylelint-enable selector-class-pattern */

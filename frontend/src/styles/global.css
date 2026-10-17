@@ -1,0 +1,72 @@
+/* ─── Reset mínimo ───────────────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* ─── Base do documento ──────────────────────────────────────────────────── */
+html,
+body {
+  min-height: 100%;
+
+  /* Base responsiva: sem rolagem horizontal (RF-32).
+     Usa img { max-width: 100% } para imagens, sem overflow-x: hidden. */
+}
+
+body {
+  background-color: var(--color-bg);
+  background-image:
+    radial-gradient(ellipse 70% 55% at 50% 38%, var(--color-white), transparent 70%),
+    url("/bg-facets.svg");
+  background-size: auto, cover;
+  background-attachment: fixed;
+  background-position: center, center;
+  color: var(--color-text);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  line-height: 1.5;
+}
+
+/* Fonte de exibição do nome e dos títulos (só fontes do sistema, sem rede). */
+:root {
+  --font-display: "Arial Black", "Helvetica Neue", "Segoe UI Black", system-ui, sans-serif;
+}
+
+/* ─── Imagens responsivas (RF-32) ────────────────────────────────────────── */
+img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* ─── Foco visível (RF-29, CA-29.2) ─────────────────────────────────────── */
+
+/* Garante indicador de foco visível sem remover o contorno padrão */
+:focus-visible {
+  outline: 2px solid var(--color-highlight);
+  outline-offset: 2px;
+}
+
+/* Remove o outline apenas quando o usuário não usa teclado (seguro) */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* ─── Utilitário sr-only (RF-21, CopyButton) ─────────────────────────────── */
+
+/* Oculta visualmente mas mantém acessível por leitores de tela */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+
+  /* clip-path substitui clip (deprecado) */
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
