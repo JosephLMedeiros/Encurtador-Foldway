@@ -120,16 +120,27 @@ kubectl -n encurtador port-forward svc/grafana 3001:3000
 ### 4. Cluster com GitOps (ArgoCD)
 
 1. Um push na `main` dispara o `.github/workflows/ci-cd.yaml`: ele roda o pytest e o lint, os testes e o build do frontend, valida os manifests com kubeconform, builda as imagens e as publica em `ghcr.io/<owner>/<repo>/{api,frontend}:<sha>`, e depois **commita a nova tag** em `k8s/kustomization.yaml`.
-2. Instale o ArgoCD e aplique a Application uma única vez:
+2. Instale o ArgoCD e registre a Application, uma única vez, com o `kubectl` apontando para o cluster (no kind: depois do `scripts/kind-up.sh`):
    ```bash
-   kubectl create namespace argocd
-   kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
-   kubectl apply -n argocd -f argocd/application.yaml
+   scripts/argocd-up.sh
    ```
-3. A partir daí, tudo chega pelo Git. O ArgoCD sincroniza `k8s/` com `prune` e `selfHeal`.
+   O script instala o ArgoCD **v3.5.5** (versão fixa), aplica `argocd/application.yaml`, espera a primeira sincronização e mostra a senha do `admin`. Pode ser rodado de novo sem problema.
+3. A partir daí, tudo chega pelo Git. O ArgoCD consulta a `main` a cada ~3 minutos e sincroniza `k8s/` com `prune` (remove o que saiu do Git) e `selfHeal` (desfaz alterações feitas na mão no cluster).
+
+Para acompanhar pela interface:
+
+```bash
+kubectl -n argocd port-forward svc/argocd-server 8443:443   # https://localhost:8443 (admin)
+kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d
+kubectl -n encurtador port-forward svc/frontend 3000:80      # o app servido pelo cluster
+```
+
+**Roteiro de demo do GitOps:**
+- **Deploy:** faça um merge na `main` e mostre o pipeline publicando as imagens, o commit `deploy: ...` do bot e o ArgoCD trocando os pods para a nova tag.
+- **Self-heal:** rode `kubectl -n encurtador scale deploy/api --replicas=5` e mostre o ArgoCD voltando para 2 réplicas em segundos, porque o Git é a fonte da verdade.
 
 Pré-requisitos e pontos de atenção:
-- Os pacotes do GHCR nascem **privados**. Torne-os públicos ou configure um `imagePullSecret`.
+- As imagens no GHCR (`api` e `frontend`) estão **públicas**, então o cluster não precisa de credencial. Num fork, os pacotes nascem privados: torne-os públicos ou configure um `imagePullSecret`.
 - O cluster precisa de uma StorageClass padrão para o PVC do Postgres.
 - As senhas em `k8s/database/secret.yaml` e `k8s/observability/grafana.yaml` são **exemplos ("troque-esta-senha")**. Os próprios arquivos explicam como usar um Secret real fora do Git.
 - Se houver um Ingress Controller, habilite `k8s/base/ingress.yaml` no kustomization e ajuste o `BASE_URL`.
