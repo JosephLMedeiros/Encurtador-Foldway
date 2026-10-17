@@ -2,7 +2,7 @@
 
 Encurtador de links cloud-native do hackathon CloudOps Bootcamp. A arquitetura é **Frontend → API → Postgres**, roda no Kubernetes, chega ao cluster pelo **GitHub Actions + ArgoCD (GitOps)** e é observada de ponta a ponta com **OpenTelemetry, Tempo, Prometheus e Grafana**.
 
-> **Personagem, identidade e features exclusivas:** a definir (decisão D-08 no [SSOT](SSOT.md)). A base já está pronta para elas: cada clique fica registrado em `click_events` (com user agent e referer), há o ranking do "link do dia", a série de cliques por hora e a métrica `kiro_feature_used_total{feature}`, para que toda feature nova apareça no Grafana sem código extra de telemetria.
+> **Identidade (proposta, D-08, D-15 a D-17 no [SSOT](SSOT.md)):** o portal se chama **Foldway** e o mascote é o **Furl**, que dobra links longos até virarem origamis. A feature exclusiva é o **QR Code** de cada link curto, com o origami no centro e download em PNG; os acessos pelo QR aparecem no Grafana em `kiro_feature_used_total{feature="qrcode"}`. A base para outras features continua pronta: cada clique fica em `click_events` (user agent e referer), há o ranking do "link do dia" e a série de cliques por hora.
 
 ## Arquitetura
 
@@ -20,7 +20,7 @@ flowchart LR
   G[Grafana] --> P & T & D
 ```
 
-- **frontend:** um nginx que serve a SPA e faz proxy de `/api` e `/r` para a API. Por ser a mesma origem, não precisa de CORS. O módulo OTel do nginx coloca o frontend dentro do trace. Por enquanto é um **placeholder**; o frontend real só precisa gerar arquivos estáticos (veja `frontend/Dockerfile`).
+- **frontend:** o Foldway (React 19 + Vite), compilado numa imagem multi-stage e servido por um nginx que faz proxy de `/api` e `/r` para a API. Por ser a mesma origem, não precisa de CORS. O navegador inicia o trace (`kiro-browser`) e o módulo OTel do nginx o continua. Quando um link não existe ou expirou, o nginx entrega a tela do Furl mantendo o 404/410. Detalhes em [frontend/README.md](frontend/README.md).
 - **api:** Python 3.12, FastAPI e psycopg 3. Cria, lista, mostra estatísticas e redireciona links, contando cliques. Expõe `/healthz`, `/readyz` e `/metrics`.
 - **database:** um StatefulSet do Postgres 16 com PVC. A própria API aplica o schema (`api/app/schema.sql`), de forma idempotente e com `pg_advisory_lock`.
 
@@ -28,11 +28,11 @@ flowchart LR
 
 ```
 api/                 API (app/, tests/, Dockerfile)
-frontend/            nginx + placeholder estático (public/)
+frontend/            Foldway: React/Vite (src/), nginx.conf e Dockerfile multi-stage
 k8s/                 kustomize: app + observabilidade (ponto de entrada do ArgoCD)
   observability/     Collector, Tempo, Prometheus, Grafana, configs e dashboard
 argocd/              Application do ArgoCD
-.github/workflows/   ci-cd.yaml (teste -> validação -> build/push GHCR -> commit da tag)
+.github/workflows/   ci-cd.yaml (testes API/frontend -> validação -> build/push GHCR -> commit da tag)
 scripts/             gerar-trafego.sh (demo) e kind-up.sh (cluster local)
 docs/                kiro-log.md (uso de IA), otel-metrics-spec.md (contrato de telemetria)
 openapi.yaml         contrato da API
@@ -41,11 +41,34 @@ SSOT.md              escopo, requisitos e decisões do grupo
 
 ## Como rodar
 
-### 1. Local com Docker Compose (app e observabilidade completa)
+### 1. Na sua máquina (Docker Compose): o jeito mais rápido
+
+Funciona em Windows, macOS e Linux. Só é preciso ter instalado:
+
+- **Git**
+- **Docker** com o Compose v2: [Docker Desktop](https://www.docker.com/products/docker-desktop/) no Windows/macOS, ou Docker Engine + plugin `docker compose` no Linux. Deixe o Docker aberto e rodando.
+- Cerca de **4 GB de RAM livres** e as portas **3000, 3001, 8080 e 9090** livres.
+
+Não é preciso instalar Node, Python nem Postgres: tudo roda em containers.
 
 ```bash
-docker compose up --build
+git clone https://github.com/JosephLMedeiros/rascunho-encurtador.git
+cd rascunho-encurtador
+docker compose up --build -d      # a primeira vez leva alguns minutos (baixa e builda as imagens)
+docker compose ps                 # espere a api aparecer como "healthy"
 ```
+
+Abra **http://localhost:3000**, cole um link longo e clique em **Encurtar**. O link curto aparece com o QR Code ao lado; o botão **QR Code** de cada item da lista mostra o QR daquele link.
+
+Para parar: `docker compose down` (os links ficam salvos no volume do Postgres). Para começar do zero: `docker compose down -v`.
+
+Se algo der errado:
+
+- **"port is already allocated":** outra aplicação usa uma das portas acima. Feche-a ou troque o lado esquerdo do `ports` no `docker-compose.yml` (ex.: `"3005:8080"`).
+- **A página abre mas a lista dá erro:** a API ainda está subindo. Veja `docker compose logs api` e aguarde o `healthy`.
+- **QR Code lido pelo celular não abre:** os links usam `http://localhost:3000`, que só existe no seu computador. Para testar no celular, troque `BASE_URL` no `docker-compose.yml` pelo IP da máquina na rede (ex.: `http://192.168.0.10:3000`) e rode `docker compose up -d` de novo.
+
+O que fica disponível:
 
 | O quê | Onde |
 |---|---|
@@ -61,7 +84,19 @@ curl -i localhost:3000/r/meu-portal          # 302 -> destino, conta o clique
 scripts/gerar-trafego.sh http://localhost:3000 120
 ```
 
-### 2. Testes da API
+### 2. Desenvolvimento e testes
+
+Frontend com recarga automática (precisa de Node.js 22); a API continua no Docker:
+
+```bash
+docker compose up -d api
+cd frontend
+npm install
+npm run dev        # http://localhost:5173
+npm test           # testes do frontend; também há npm run lint e npm run lint:css
+```
+
+Testes da API (precisa de Python 3.12):
 
 ```bash
 docker run -d --name kiro-test-db -e POSTGRES_USER=kiro -e POSTGRES_PASSWORD=kiro \
@@ -72,7 +107,7 @@ pip install -r requirements-dev.txt
 pytest                                            # usa TEST_DATABASE_URL (padrão: localhost:5433)
 ```
 
-São 43 testes, entre unitários e de integração com Postgres real. Eles cobrem a criação, os conflitos (409), as validações (400), a paginação, o redirect (302, 404 e 410), a contagem de cliques, o ranking, o banco fora do ar (503) e o **contrato de telemetria** (nomes das métricas, `http_route` como template e o span do banco como filho do span HTTP).
+São 44 testes, entre unitários e de integração com Postgres real. Eles cobrem a criação, os conflitos (409), as validações (400), a paginação, o redirect (302, 404 e 410), a contagem de cliques, o ranking, o banco fora do ar (503) e o **contrato de telemetria** (nomes das métricas, `http_route` como template e o span do banco como filho do span HTTP).
 
 ### 3. Kubernetes local com kind (plano B da demo)
 
@@ -84,7 +119,7 @@ kubectl -n encurtador port-forward svc/grafana 3001:3000
 
 ### 4. Cluster com GitOps (ArgoCD)
 
-1. Um push na `main` dispara o `.github/workflows/ci-cd.yaml`: ele roda o pytest, valida os manifests com kubeconform, builda as imagens e as publica em `ghcr.io/<owner>/<repo>/{api,frontend}:<sha>`, e depois **commita a nova tag** em `k8s/kustomization.yaml`.
+1. Um push na `main` dispara o `.github/workflows/ci-cd.yaml`: ele roda o pytest e o lint, os testes e o build do frontend, valida os manifests com kubeconform, builda as imagens e as publica em `ghcr.io/<owner>/<repo>/{api,frontend}:<sha>`, e depois **commita a nova tag** em `k8s/kustomization.yaml`.
 2. Instale o ArgoCD e aplique a Application uma única vez:
    ```bash
    kubectl create namespace argocd
@@ -139,7 +174,7 @@ O contrato está em [docs/otel-metrics-spec.md](docs/otel-metrics-spec.md).
   - `kiro_links_created_total{kind}`
   - `kiro_link_redirect_duration_seconds{outcome}`
   - `kiro_active_links`
-  - `kiro_feature_used_total{feature}`
+  - `kiro_feature_used_total{feature}` (`stats`, `ranking` e `qrcode`)
   - `http_server_request_duration_seconds{http_route,...}`
 - **Dashboard "Kiro Portal - Visão geral"** (provisionado automaticamente):
   - cliques/s e cliques na última hora;
@@ -163,7 +198,9 @@ O contrato está em [docs/otel-metrics-spec.md](docs/otel-metrics-spec.md).
 | Clique e evento num único statement (CTE) | O contador e o log de cliques nunca divergem, com uma ida ao banco por redirect |
 | `synchronous_commit off` só no clique | Os traces mostraram picos de até 1s causados pelo fsync. O pior caso caiu para cerca de 12 ms; perde-se no máximo uma fração de segundo de cliques num crash, e a criação de links continua durável |
 | Redirect em `/r/{code}` (D-06) | Não conflita com as rotas do frontend; `/{code}` continua aceito por compatibilidade |
-| nginx fazendo proxy na mesma origem | Sem CORS, e o frontend vira um elo do trace |
+| nginx fazendo proxy na mesma origem (D-13) | Sem CORS, e o frontend vira um elo do trace |
+| 404/410 de `/r/` interceptados pelo nginx (D-12) | O visitante vê a tela do Furl em vez de um JSON, e o status HTTP continua correto |
+| QR Code gerado no navegador, apontando para `?via=qr` (D-17) | Nenhum endpoint novo; o visual segue o tema e a API mede os acessos vindos do QR |
 | Kustomize com `images` e um único pipeline (D-07, D-10 GHCR) | O CI muda só a tag num commit e o ArgoCD aplica. Um único job de deploy evita pushes concorrentes |
 | `/metrics` com scrape por pod (`kubernetes_sd`) | Cada réplica é um alvo, e `up{app="api"}` mostra a saúde |
 | Configs de observabilidade compartilhadas | Os mesmos arquivos geram os ConfigMaps (com hash, o que reinicia o pod quando a config muda) e são montados pelo compose |

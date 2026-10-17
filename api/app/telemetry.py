@@ -40,7 +40,7 @@ _active_links_source: Callable[[], int] | None = None
 _links_created = _link_clicks = _redirect_duration = _feature_used = None
 
 # Valores permitidos para o atributo "feature" (cardinalidade fixa). Adicione aqui cada feature nova.
-FEATURES = frozenset({"stats", "ranking"})
+FEATURES = frozenset({"stats", "ranking", "qrcode"})
 
 
 def _setup_providers() -> None:

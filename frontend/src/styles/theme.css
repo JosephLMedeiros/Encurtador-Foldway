@@ -1,0 +1,45 @@
+/* ─── Variáveis de cor brutas (paleta da identidade visual) ─────────────────
+   Estas são as únicas ocorrências de valores hexadecimais em todo o projeto
+   (o stylelint ignora este arquivo). Componentes usam só os aliases abaixo.
+
+   Foldway — versão clara: o fundo puxa para o branco-papel e o índigo vira a
+   cor do texto. Coral continua sendo o único destaque quente (os origamis) e
+   o ciano fica reservado para a energia (foco, vincos, brilhos).            */
+:root {
+  --color-indigo-night:  #14182B;
+  --color-slate-blue:    #2C3A5E;
+  --color-paper-white:   #F7F3EA;
+  --color-kraft:         #CDB28A;
+  --color-kraft-ink:     #6B5535;   /* kraft escuro: texto secundário sobre fundo claro */
+  --color-coral:         #F2553D;
+  --color-cyan:          #2DE2E6;
+  --color-white:         #FFFFFF;
+  --color-mist:          #EEF1F6;   /* branco azulado do fundo */
+
+  /* ─── Aliases semânticos ───────────────────────────────────────────────── */
+  --color-bg:         var(--color-mist);
+  --color-surface:    var(--color-white);
+  --color-text:       var(--color-indigo-night);
+  --color-accent:     var(--color-coral);
+  --color-highlight:  var(--color-cyan);
+  --color-secondary:  var(--color-kraft-ink);
+  --color-muted:      var(--color-slate-blue);
+
+  /* Texto sobre coral: índigo aprova AA (5,14:1); branco-papel reprova. */
+  --color-on-accent:  var(--color-indigo-night);
+
+  /* ─── Superfícies, linhas e sombras (derivadas da paleta) ──────────────── */
+  --color-surface-soft: color-mix(in srgb, var(--color-white) 78%, transparent);
+  --color-line:         color-mix(in srgb, var(--color-slate-blue) 18%, transparent);
+  --color-shadow:       color-mix(in srgb, var(--color-indigo-night) 22%, transparent);
+  --color-placeholder:  var(--color-kraft-ink);
+  --color-cyan-glow:    color-mix(in srgb, var(--color-cyan) 35%, transparent);
+  --color-cyan-faint:   color-mix(in srgb, var(--color-cyan) 14%, transparent);
+  --color-coral-glow:   color-mix(in srgb, var(--color-coral) 55%, transparent);
+  --color-backdrop:     color-mix(in srgb, var(--color-slate-blue) 14%, var(--color-mist));
+
+  /* ─── Forma ────────────────────────────────────────────────────────────── */
+  --fold:           16px;   /* tamanho do canto dobrado */
+  --radius-card:    4px;
+  --radius-control: 2px;
+}
