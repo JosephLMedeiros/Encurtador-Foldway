@@ -41,11 +41,34 @@ SSOT.md              escopo, requisitos e decisões do grupo
 
 ## Como rodar
 
-### 1. Local com Docker Compose (app e observabilidade completa)
+### 1. Na sua máquina (Docker Compose): o jeito mais rápido
+
+Funciona em Windows, macOS e Linux. Só é preciso ter instalado:
+
+- **Git**
+- **Docker** com o Compose v2: [Docker Desktop](https://www.docker.com/products/docker-desktop/) no Windows/macOS, ou Docker Engine + plugin `docker compose` no Linux. Deixe o Docker aberto e rodando.
+- Cerca de **4 GB de RAM livres** e as portas **3000, 3001, 8080 e 9090** livres.
+
+Não é preciso instalar Node, Python nem Postgres: tudo roda em containers.
 
 ```bash
-docker compose up --build
+git clone https://github.com/JosephLMedeiros/rascunho-encurtador.git
+cd rascunho-encurtador
+docker compose up --build -d      # a primeira vez leva alguns minutos (baixa e builda as imagens)
+docker compose ps                 # espere a api aparecer como "healthy"
 ```
+
+Abra **http://localhost:3000**, cole um link longo e clique em **Encurtar**. O link curto aparece com o QR Code ao lado; o botão **QR Code** de cada item da lista mostra o QR daquele link.
+
+Para parar: `docker compose down` (os links ficam salvos no volume do Postgres). Para começar do zero: `docker compose down -v`.
+
+Se algo der errado:
+
+- **"port is already allocated":** outra aplicação usa uma das portas acima. Feche-a ou troque o lado esquerdo do `ports` no `docker-compose.yml` (ex.: `"3005:8080"`).
+- **A página abre mas a lista dá erro:** a API ainda está subindo. Veja `docker compose logs api` e aguarde o `healthy`.
+- **QR Code lido pelo celular não abre:** os links usam `http://localhost:3000`, que só existe no seu computador. Para testar no celular, troque `BASE_URL` no `docker-compose.yml` pelo IP da máquina na rede (ex.: `http://192.168.0.10:3000`) e rode `docker compose up -d` de novo.
+
+O que fica disponível:
 
 | O quê | Onde |
 |---|---|
@@ -61,7 +84,19 @@ curl -i localhost:3000/r/meu-portal          # 302 -> destino, conta o clique
 scripts/gerar-trafego.sh http://localhost:3000 120
 ```
 
-### 2. Testes da API
+### 2. Desenvolvimento e testes
+
+Frontend com recarga automática (precisa de Node.js 22); a API continua no Docker:
+
+```bash
+docker compose up -d api
+cd frontend
+npm install
+npm run dev        # http://localhost:5173
+npm test           # testes do frontend; também há npm run lint e npm run lint:css
+```
+
+Testes da API (precisa de Python 3.12):
 
 ```bash
 docker run -d --name kiro-test-db -e POSTGRES_USER=kiro -e POSTGRES_PASSWORD=kiro \
@@ -72,7 +107,7 @@ pip install -r requirements-dev.txt
 pytest                                            # usa TEST_DATABASE_URL (padrão: localhost:5433)
 ```
 
-São 43 testes, entre unitários e de integração com Postgres real. Eles cobrem a criação, os conflitos (409), as validações (400), a paginação, o redirect (302, 404 e 410), a contagem de cliques, o ranking, o banco fora do ar (503) e o **contrato de telemetria** (nomes das métricas, `http_route` como template e o span do banco como filho do span HTTP).
+São 44 testes, entre unitários e de integração com Postgres real. Eles cobrem a criação, os conflitos (409), as validações (400), a paginação, o redirect (302, 404 e 410), a contagem de cliques, o ranking, o banco fora do ar (503) e o **contrato de telemetria** (nomes das métricas, `http_route` como template e o span do banco como filho do span HTTP).
 
 ### 3. Kubernetes local com kind (plano B da demo)
 

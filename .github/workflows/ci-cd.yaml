@@ -2,9 +2,10 @@
 # tag em k8s/kustomization.yaml. O ArgoCD vê o commit e sincroniza o cluster (GitOps).
 name: CI/CD
 
+# develop: testa e builda a cada push. main: também publica as imagens e faz o deploy.
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
     paths-ignore: ["**.md", "docs/**", ".kiro/**"]
   pull_request:
   workflow_dispatch:
