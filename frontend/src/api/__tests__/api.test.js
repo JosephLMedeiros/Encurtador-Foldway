@@ -73,11 +73,26 @@ describe('createLink — falhas', () => {
   });
 });
 
+describe('tracing do navegador (D-14)', () => {
+  it('propaga traceparent W3C e exporta o span para /otlp', async () => {
+    const fetchMock = stubFetch(200, { total: 0, items: [] });
+    await listLinks();
+    const [, options] = fetchMock.mock.calls[0];
+    expect(options.headers.traceparent).toMatch(/^00-[0-9a-f]{32}-[0-9a-f]{16}-01$/);
+
+    const [url, exported] = fetchMock.mock.calls[1];
+    expect(url).toBe('/otlp/v1/traces');
+    const span = JSON.parse(exported.body).resourceSpans[0];
+    expect(span.resource.attributes[0].value.stringValue).toBe('kiro-browser');
+    expect(span.scopeSpans[0].spans[0].traceId).toBe(options.headers.traceparent.split('-')[1]);
+  });
+});
+
 describe('CA-01.4 — listLinks', () => {
   it('em 200 devolve os items convertidos', async () => {
     const fetchMock = stubFetch(200, { total: 1, items: [API_LINK] });
     await expect(listLinks()).resolves.toEqual([LINK]);
-    expect(fetchMock).toHaveBeenCalledWith('/api/links');
+    expect(fetchMock).toHaveBeenCalledWith('/api/links', expect.anything());
   });
 
   it('fora de 200 lança erro', async () => {

@@ -5,7 +5,9 @@
  * A API fica na mesma origem: o nginx (produção) e o Vite (desenvolvimento)
  * encaminham /api e /r para ela. Este módulo converte o contrato da API
  * (openapi.yaml, snake_case) para o formato usado pelos componentes.
+ * Toda chamada gera um span do navegador (tracing.js).
  */
+import { tracedFetch } from './tracing.js';
 
 const NETWORK_ERROR = 'Falha na comunicação com o servidor';
 
@@ -32,7 +34,7 @@ function toLink(item) {
  * @returns {Promise<{ shortCode, shortUrl, originalUrl, createdAt, clicks }>}
  */
 export async function createLink(url) {
-  const res = await fetch('/api/links', {
+  const res = await tracedFetch('/api/links', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ original_url: url }),
@@ -56,7 +58,7 @@ export async function createLink(url) {
  * @returns {Promise<{ shortCode, shortUrl, originalUrl, createdAt, clicks }[]>}
  */
 export async function listLinks() {
-  const res = await fetch('/api/links');
+  const res = await tracedFetch('/api/links');
 
   if (res.status === 200) {
     const body = await res.json();

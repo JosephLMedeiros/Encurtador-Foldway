@@ -44,6 +44,8 @@ Só `src/api/api.js` faz chamadas de rede (regra do ESLint). Ele converte o cont
 
 Erro 400 vira `Error` com mensagem para o visitante e `type: 'validation'`; outros erros viram "Falha na comunicação com o servidor".
 
+Cada chamada passa por `src/api/tracing.js`: leva um `traceparent` W3C e gera um span `kiro-browser`, enviado em OTLP/JSON para `/otlp/v1/traces` (nginx → Collector). É assim que o trace no Tempo começa no navegador. Em `npm run dev` não há Collector, então esse envio falha em silêncio.
+
 ## QR Code
 
 Cada link curto tem um QR Code (no resultado e no botão **QR Code** de cada item da lista), gerado no navegador com `qrcode-generator`:
@@ -66,7 +68,7 @@ As imagens do Furl ficam em `public/mascot/` (`welcome`, `loading`, `success`, `
 
 ```
 src/
-├── api/          # api.js — única porta de rede, converte o contrato da API
+├── api/          # api.js (única porta de rede, converte o contrato) e tracing.js
 ├── components/   # CopyButton, FoldAnimation, LinkForm, LinkList, Mascot, QrCode
 ├── config/       # mascot.js — poses e textos do mascote
 ├── lib/          # funções puras: pose do mascote, QR Code, desenho do origami
