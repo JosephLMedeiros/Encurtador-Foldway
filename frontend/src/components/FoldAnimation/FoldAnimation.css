@@ -1,0 +1,325 @@
+/* ─── Animação de dobra: papel bruto → origami ───────────────────────────── */
+/* stylelint-disable selector-class-pattern */
+.fold {
+  --w: 360px;
+  --h: 112px;
+  --sx: 0px;
+  --sy: 0px;
+  --rot: 0deg;
+  --sc: 1;
+  --kraft-back: color-mix(in srgb, var(--color-kraft) 80%, var(--color-indigo-night));
+
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 190px;
+  margin-top: 1rem;
+  perspective: 900px;
+}
+
+.fold[data-phase="idle"] {
+  visibility: hidden;
+}
+
+/* ── Folha ───────────────────────────────────────────────────────────────── */
+.fold__sheet {
+  position: relative;
+  width: var(--w);
+  height: var(--h);
+  transform: translate(var(--sx), var(--sy)) rotate(var(--rot)) scale(var(--sc));
+  transform-style: preserve-3d;
+  transition: transform 0.12s ease-out;
+  filter: drop-shadow(0 10px 16px var(--color-shadow));
+}
+
+.fold.is-snapping .fold__sheet {
+  transition: none;
+}
+
+.fold[data-phase="paper"] .fold__sheet {
+  animation: fold-drop var(--paper-ms) ease-out;
+}
+
+.fold[data-phase="retry"] .fold__sheet {
+  opacity: 0;
+  transition: opacity var(--paper-ms);
+}
+
+.fold__face {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 18% 25%, var(--color-cyan-faint), transparent 55%),
+    var(--color-kraft);
+  background-blend-mode: soft-light, normal;
+  transition: background-color var(--morph-ms) ease-in;
+}
+
+.fold__face.is-back {
+  background: var(--kraft-back);
+  box-shadow: inset 0 0 0 1px var(--color-shadow);
+}
+
+.fold[data-flap="x"] .fold__face {
+  clip-path: inset(0 50% 0 0);
+}
+
+.fold[data-flap="y"] .fold__face {
+  clip-path: inset(0 0 50% 0);
+}
+
+/* Texto impresso: a URL em tinta escura */
+.fold__text {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--w0);
+  padding: 10px 14px;
+  color: var(--color-indigo-night);
+  font: 600 13px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace;
+  word-break: break-all;
+  opacity: 0.85;
+}
+
+.fold__text--clone {
+  left: calc(var(--w0) / -2);
+}
+
+.is-back .fold__text {
+  opacity: 0;
+}
+
+/* ── Vincos (linhas ciano que se desenham) ───────────────────────────────── */
+.fold__crease {
+  position: absolute;
+  background: var(--color-highlight);
+  box-shadow: 0 0 8px var(--color-highlight);
+  opacity: 0;
+}
+
+.fold__crease--v {
+  top: 0;
+  left: 50%;
+  width: 2px;
+  height: 100%;
+  transform-origin: top;
+  transform: scaleY(0);
+}
+
+.fold__crease--h {
+  top: 50%;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  transform-origin: left;
+  transform: scaleX(0);
+}
+
+.fold[data-crease~="v"] .fold__crease--v {
+  animation: fold-crease-v var(--crease-ms) ease-out forwards;
+}
+
+.fold[data-crease~="h"] .fold__crease--h {
+  animation: fold-crease-h var(--crease-ms) ease-out forwards;
+}
+
+/* ── Abas que dobram (3D) ────────────────────────────────────────────────── */
+.fold__flap {
+  position: absolute;
+  display: none;
+  transform-style: preserve-3d;
+}
+
+.fold__flap--x {
+  top: 0;
+  left: 50%;
+  width: 50%;
+  height: 100%;
+  transform-origin: left center;
+}
+
+.fold__flap--y {
+  top: 50%;
+  left: 0;
+  width: 100%;
+  height: 50%;
+  transform-origin: center top;
+}
+
+.fold__flap > i {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: var(--color-kraft);
+  backface-visibility: hidden;
+}
+
+.fold__flap > i:last-child {
+  background: var(--kraft-back);
+  transform: rotateY(180deg);
+}
+
+.fold__flap--y > i:last-child {
+  transform: rotateX(180deg);
+}
+
+.fold[data-folded] .fold__flap > i:first-child {
+  background: var(--kraft-back);
+}
+
+.fold[data-flap="x"] .fold__flap--x {
+  display: block;
+  animation: fold-flap-x var(--flap-ms) cubic-bezier(0.55, 0, 0.25, 1) forwards;
+}
+
+.fold[data-flap="y"] .fold__flap--y {
+  display: block;
+  animation: fold-flap-y var(--flap-ms) cubic-bezier(0.55, 0, 0.25, 1) forwards;
+}
+
+/* ── Origami + link curto ────────────────────────────────────────────────── */
+.fold__origami {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  opacity: 0;
+  transform: scale(0.5) rotate(-30deg);
+}
+
+.fold__origami svg {
+  width: 64px;
+  height: 64px;
+  filter: drop-shadow(0 0 14px var(--color-coral-glow));
+}
+
+.fold__code {
+  max-width: 0;
+  padding: 0.3rem 0;
+  overflow: hidden;
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  font-weight: 700;
+  white-space: nowrap;
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%);
+  opacity: 0;
+  transition: max-width var(--land-ms) ease-out, padding var(--land-ms) ease-out, opacity var(--land-ms);
+}
+
+.fold[data-phase="morph"] .fold__sheet,
+.fold[data-phase="landed"] .fold__sheet {
+  --rot: 45deg;
+  --sc: 0.6;
+
+  opacity: 0;
+  transition: transform var(--morph-ms) ease-in, opacity calc(var(--morph-ms) * 0.8) ease-in 0.2s;
+}
+
+.fold[data-phase="morph"] .fold__face,
+.fold[data-phase="landed"] .fold__face {
+  background: var(--color-accent);
+}
+
+.fold[data-phase="morph"] .fold__origami,
+.fold[data-phase="landed"] .fold__origami {
+  opacity: 1;
+  transform: none;
+  transition: opacity var(--morph-ms) ease-out 0.1s, transform var(--morph-ms) cubic-bezier(0.3, 1.6, 0.5, 1) 0.1s;
+}
+
+.fold[data-phase="landed"] .fold__origami svg {
+  animation: fold-flash var(--land-ms) ease-out;
+}
+
+.fold[data-phase="landed"] .fold__code {
+  max-width: 14ch;
+  padding: 0.3rem 0.8rem;
+  opacity: 1;
+}
+
+/* ── Erro: o vinco não encaixa ───────────────────────────────────────────── */
+.fold[data-phase="fail"] .fold__sheet {
+  --rot: -3deg;
+
+  animation: fold-shake 0.4s ease-in-out;
+}
+
+.fold[data-phase="fail"] .fold__crease--v {
+  background: var(--color-accent);
+  box-shadow: 0 0 8px var(--color-accent);
+  opacity: 1;
+  animation: none;
+  transform: scaleY(1);
+}
+
+/* ── Keyframes ───────────────────────────────────────────────────────────── */
+@keyframes fold-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-24px) rotate(-3deg);
+  }
+}
+
+@keyframes fold-crease-v {
+  0% {
+    opacity: 1;
+    transform: scaleY(0);
+  }
+
+  60% {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scaleY(1);
+  }
+}
+
+@keyframes fold-crease-h {
+  0% {
+    opacity: 1;
+    transform: scaleX(0);
+  }
+
+  60% {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scaleX(1);
+  }
+}
+
+@keyframes fold-flap-x {
+  to {
+    transform: rotateY(-180deg);
+  }
+}
+
+@keyframes fold-flap-y {
+  to {
+    transform: rotateX(180deg);
+  }
+}
+
+@keyframes fold-flash {
+  40% {
+    filter: drop-shadow(0 0 26px var(--color-highlight));
+  }
+}
+
+@keyframes fold-shake {
+  25% {
+    translate: -7px 0;
+  }
+
+  75% {
+    translate: 7px 0;
+  }
+}
+/* stylelint-enable selector-class-pattern */
