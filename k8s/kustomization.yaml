@@ -3,12 +3,10 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: encurtador
-
 labels:
   - pairs:
       app.kubernetes.io/part-of: kiro-portal
     includeSelectors: false
-
 resources:
   - base/namespace.yaml
   # - base/ingress.yaml   # habilite quando o cluster tiver um Ingress Controller (D-02)
@@ -25,7 +23,6 @@ resources:
   - observability/tempo.yaml
   - observability/prometheus.yaml
   - observability/grafana.yaml
-
 # Configs geradas a partir de arquivos (os mesmos que o docker-compose monta).
 # O sufixo de hash no nome faz o pod reiniciar sozinho quando a config muda no Git.
 configMapGenerator:
@@ -41,11 +38,12 @@ configMapGenerator:
     files: [observability/config/grafana-dashboards.yaml]
   - name: grafana-dashboards
     files: [observability/dashboards/kiro-portal.json]
-
 # O CI (GitHub Actions) atualiza newTag com o SHA do commit a cada build na main.
 # O ArgoCD detecta o commit e sincroniza o cluster (GitOps: Git é a fonte da verdade).
 images:
   - name: ghcr.io/josephlmedeiros/rascunho-encurtador/api
-    newTag: latest
+    newTag: b1e7089
+    newName: ghcr.io/josephlmedeiros/rascunho-encurtador/api
   - name: ghcr.io/josephlmedeiros/rascunho-encurtador/frontend
-    newTag: latest
+    newTag: b1e7089
+    newName: ghcr.io/josephlmedeiros/rascunho-encurtador/frontend
