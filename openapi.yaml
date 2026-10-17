@@ -1,12 +1,14 @@
 openapi: 3.0.3
 info:
   title: Kiro Portal - Cloud-Native URL Shortener API
-  version: 1.1.0
+  version: 1.2.0
   description: |
     API oficial do encurtador de links multiverso do Kiro (implementação: Python/FastAPI, D-03).
     A documentação interativa gerada pela própria API fica em /docs.
     Mudanças da 1.1.0: redirect canônico em /r/{shortCode} (/{shortCode} mantido por compatibilidade),
     listagem retorna {total, items}, qr_code_url adiado para a etapa de features.
+    Mudanças da 1.2.0: o QR Code é gerado no navegador e aponta para /r/{shortCode}?via=qr,
+    o que permite medir os acessos vindos do QR (feature "qrcode").
 paths:
   /api/links:
     get:
@@ -77,6 +79,11 @@ paths:
       description: Também disponível em /{shortCode} (compatibilidade).
       parameters:
         - $ref: '#/components/parameters/ShortCode'
+        - name: via
+          in: query
+          required: false
+          description: Origem do acesso. `qr` = veio do QR Code do frontend (conta kiro_feature_used_total{feature="qrcode"}).
+          schema: { type: string, enum: [qr] }
       responses:
         '302':
           description: Redirecionamento para o destino original

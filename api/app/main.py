@@ -175,7 +175,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     # ---------- Redirect ----------
 
-    def redirect(short_code: str, request: Request):
+    def redirect(short_code: str, request: Request, via: str | None = None):
         if not shortcode.is_valid_code(short_code):
             return error(404, "not_found", "link não encontrado")
         telemetry.tag_short_code(short_code)
@@ -191,6 +191,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             return error(404, "not_found", "link não encontrado")
         telemetry.redirect_finished(time.perf_counter() - started, "found")
         telemetry.link_clicked()
+        if via == "qr":  # o QR Code do frontend aponta para /r/{code}?via=qr
+            telemetry.feature_used("qrcode")
         return RedirectResponse(url, status_code=302, headers={"Cache-Control": "no-store"})
 
     app.add_api_route("/r/{short_code}", redirect, methods=["GET"], name="redirect")

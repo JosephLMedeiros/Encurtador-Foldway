@@ -60,6 +60,12 @@ def test_feature_usage_metric(client):
     assert 'kiro_feature_used_total{feature="ranking"' in client.get("/metrics").text
 
 
+def test_qrcode_access_metric(client):
+    client.post("/api/links", json={"original_url": "https://example.com", "custom_code": "qr-demo"})
+    assert client.get("/r/qr-demo?via=qr").status_code == 302
+    assert 'kiro_feature_used_total{feature="qrcode"' in client.get("/metrics").text
+
+
 def test_probes_and_asgi_internals_do_not_create_spans(client, spans):
     spans.clear()
     client.get("/readyz")
