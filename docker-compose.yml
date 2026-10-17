@@ -1,0 +1,104 @@
+# Ambiente local: mesmos nomes de serviço usados no Kubernetes (database, api, frontend).
+# Uso: docker compose up --build
+#   App: http://localhost:3000 | Grafana: http://localhost:3001 | Prometheus: http://localhost:9090
+# Configs de observabilidade: as mesmas do Kubernetes (k8s/observability/config).
+name: kiro-portal
+
+services:
+  database:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: encurtador
+      POSTGRES_USER: kiro
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-troque-esta-senha}   # valor de exemplo: troque
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kiro -d encurtador"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build: ./api
+    image: kiro-api:dev
+    environment:
+      DB_HOST: database
+      DB_PORT: "5432"
+      DB_NAME: encurtador
+      DB_USER: kiro
+      DB_PASSWORD: ${DB_PASSWORD:-troque-esta-senha}
+      BASE_URL: http://localhost:3000   # links curtos passam pelo frontend (nginx -> /r)
+      OTEL_SERVICE_NAME: kiro-api
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      OTEL_TRACES_SAMPLER: parentbased_always_on
+    ports:
+      - "8080:8080"
+    depends_on:
+      database:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/readyz', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  frontend:
+    build: ./frontend
+    image: kiro-frontend:dev
+    ports:
+      - "3000:8080"
+    depends_on:
+      api:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+
+  # ---------- Observabilidade (D-09) ----------
+  otel-collector:
+    image: otel/opentelemetry-collector:0.120.0
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes:
+      - ./k8s/observability/config/otel-collector.yaml:/etc/otelcol/config.yaml:ro
+    depends_on: [tempo]
+
+  tempo:
+    image: grafana/tempo:2.6.1
+    command: ["-config.file=/etc/tempo/tempo.yaml"]
+    user: "0"   # local: grava em /var/tempo sem precisar ajustar permissões do volume
+    volumes:
+      - ./k8s/observability/config/tempo.yaml:/etc/tempo/tempo.yaml:ro
+      - tempo-data:/var/tempo
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    command:
+      - --config.file=/etc/prometheus/prometheus.yaml
+      - --web.enable-remote-write-receiver
+      - --enable-feature=exemplar-storage
+    volumes:
+      - ./k8s/observability/config/prometheus.compose.yaml:/etc/prometheus/prometheus.yaml:ro
+    ports:
+      - "9090:9090"
+
+  grafana:
+    image: grafana/grafana:11.3.0
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-troque-esta-senha}
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/kiro-portal.json
+      DB_USER: kiro
+      DB_PASSWORD: ${DB_PASSWORD:-troque-esta-senha}
+    volumes:
+      - ./k8s/observability/config/grafana-datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml:ro
+      - ./k8s/observability/config/grafana-dashboards.yaml:/etc/grafana/provisioning/dashboards/dashboards.yaml:ro
+      - ./k8s/observability/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3001:3000"
+    depends_on: [prometheus, tempo]
+
+volumes:
+  pgdata:
+  tempo-data:

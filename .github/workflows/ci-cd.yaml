@@ -1,0 +1,161 @@
+# Pipeline único: testa (API e frontend) -> valida manifests -> builda e publica imagens no GHCR -> commita a nova
+# tag em k8s/kustomization.yaml. O ArgoCD vê o commit e sincroniza o cluster (GitOps).
+name: CI/CD
+
+# develop: testa e builda a cada push. main: também publica as imagens e faz o deploy.
+on:
+  push:
+    branches: [main, develop]
+    paths-ignore: ["**.md", "docs/**", ".kiro/**"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-cd-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  test-api:
+    name: Testes da API (pytest + Postgres)
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: kiro
+          POSTGRES_PASSWORD: kiro
+          POSTGRES_DB: kiro_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U kiro -d kiro_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    defaults:
+      run:
+        working-directory: api
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"   # mesma versão da imagem Docker
+          cache: pip
+          cache-dependency-path: api/requirements*.txt
+      - run: pip install -r requirements-dev.txt
+      - name: pytest
+        run: python -m pytest -v
+        env:
+          TEST_DATABASE_URL: postgresql://kiro:kiro@localhost:5432/kiro_test
+
+  test-frontend:
+    name: Frontend (lint + testes + build)
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"   # mesma versão da etapa de build da imagem
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npm run lint
+      - run: npm run lint:css
+      - run: npm test
+      - run: npm run build
+
+  validate:
+    name: Valida manifests e compose
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - name: Renderiza o kustomize
+        run: kubectl kustomize k8s > rendered.yaml
+      - name: kubeconform (schemas do Kubernetes e CRD do ArgoCD)
+        run: |
+          curl -sSL https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz | tar xz
+          ./kubeconform -strict -summary rendered.yaml
+          ./kubeconform -strict -summary \
+            -schema-location default \
+            -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
+            argocd/application.yaml
+      - name: docker compose config
+        run: docker compose config -q
+
+  build:
+    name: Build ${{ matrix.component }}
+    needs: [test-api, test-frontend, validate]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        component: [api, frontend]
+    env:
+      PUSH: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Nome da imagem (GHCR exige minúsculas)
+        id: image
+        run: |
+          echo "name=${REGISTRY}/${GITHUB_REPOSITORY,,}/${{ matrix.component }}" >> "$GITHUB_OUTPUT"
+          echo "tag=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        if: env.PUSH == 'true'
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v7
+        with:
+          context: ./${{ matrix.component }}
+          push: ${{ env.PUSH == 'true' }}
+          tags: |
+            ${{ steps.image.outputs.name }}:${{ steps.image.outputs.tag }}
+            ${{ steps.image.outputs.name }}:latest
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.component }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.component }}
+
+  deploy:
+    name: GitOps - atualiza tags no kustomization
+    needs: build
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - name: Define newName/newTag das imagens (yq já vem no runner)
+        run: |
+          TAG="${GITHUB_SHA::7}"
+          for c in api frontend; do
+            IMG="${REGISTRY}/${GITHUB_REPOSITORY,,}/$c"
+            C="$c" IMG="$IMG" TAG="$TAG" yq -i \
+              '(.images[] | select(.name | test("/" + strenv(C) + "$"))) |= (.newName = strenv(IMG) | .newTag = strenv(TAG))' \
+              k8s/kustomization.yaml
+          done
+          sed -n '/^images:/,$p' k8s/kustomization.yaml
+      - name: Commit e push (o ArgoCD sincroniza a partir daqui)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add k8s/kustomization.yaml
+          git diff --staged --quiet && { echo "Nada a atualizar"; exit 0; }
+          git commit -m "deploy: api e frontend em ${GITHUB_SHA::7} [skip ci]"
+          for attempt in 1 2 3; do
+            git push && exit 0
+            echo "push rejeitado (tentativa $attempt), rebase e nova tentativa"
+            git pull --rebase origin main
+          done
+          exit 1

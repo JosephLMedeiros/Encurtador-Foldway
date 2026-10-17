@@ -1,0 +1,24 @@
+# Ingress opcional: habilite em k8s/kustomization.yaml quando o cluster tiver um Ingress Controller.
+# Só a raiz vai para o frontend: o nginx do frontend já faz proxy de /api e /r para a API,
+# então não é preciso rewrite nem CORS (correção do rascunho anterior, cujo rewrite-target: /
+# transformava /api/links em /).
+#
+# Teste local com kind/minikube: instale o ingress-nginx e adicione "127.0.0.1 encurtador.local"
+# ao arquivo hosts. Lembre de ajustar BASE_URL em k8s/api/configmap.yaml para http://encurtador.local
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: encurtador
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: encurtador.local   # TODO: host real do cluster do bootcamp (D-02)
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  name: http

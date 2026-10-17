@@ -1,0 +1,33 @@
+/* ─── Mascote (Furl) ─────────────────────────────────────────────────────── */
+.mascot {
+  display: block;
+  width: 100%;
+  max-width: 340px;
+  height: auto;
+  object-fit: contain;
+
+  /* Contorno índigo suave: mantém o cachecol branco legível sobre fundo claro */
+  filter:
+    drop-shadow(0 1px 0 var(--color-line))
+    drop-shadow(0 14px 18px var(--color-shadow));
+  animation: mascot-in 0.35s ease-out, mascot-float 7s ease-in-out 0.35s infinite;
+}
+
+@keyframes mascot-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+@keyframes mascot-float {
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mascot {
+    animation: none;
+  }
+}

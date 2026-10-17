@@ -101,14 +101,21 @@ A solução deverá integrar esses componentes à infraestrutura Kubernetes, ao 
 |---|---|---|---|---|---|
 | D-01 | Stack obrigatória: Kubernetes, GitHub Actions, ArgoCD, OpenTelemetry, Grafana | Confirmada | 2026-10-13 | Definida pelo enunciado | — |
 | D-02 | Ambiente Kubernetes (local ou cluster do bootcamp) | Pendente | | | |
-| D-03 | Tecnologia da API | Pendente | | | |
-| D-04 | Frontend | Pendente | | | |
-| D-05 | Banco de dados | Pendente | | | |
-| D-06 | Formato do código curto | Pendente | | | |
-| D-07 | Organização do repositório GitOps | Pendente | | | |
-| D-08 | Identidade (nome, personagem, tema, features) | Pendente | | | |
-| D-09 | Ferramentas e configuração de observabilidade (coleta, armazenamento de traces e métricas, dashboards) | Pendente | | | |
-| D-10 | Registry de imagens de contêiner | Pendente | | | |
+| D-03 | Tecnologia da API | Confirmada | 2026-10-16 | Python 3.12 + FastAPI + psycopg 3 (substitui a decisão de 2026-10-15 por Node.js). FastAPI dá validação e OpenAPI nativos e tem instrumentação OTel oficial; a spec 01-backend-api (escrita para Node/Fastify) precisa ser revisada. | Diêgo (aguardando ciência de Abby e Lucas) |
+| D-04 | Frontend: React + Vite, JavaScript (sem TypeScript), React Router, CSS puro com variáveis de tema, animações em CSS e SVG, acesso à API concentrado em um único módulo (`api.js`) | Confirmada | 2026-10-15 | Proposta pelo responsável pelo frontend, É a stack que ele conhece e facilita a revisão do código gerado pelo Kiro. Em 2026-10-17 o mock da API foi removido, depois da integração com a API real. | — |
+| D-05 | Banco de dados | Confirmada | 2026-10-16 | PostgreSQL 16 (schema em `api/app/schema.sql`, aplicado pela API com advisory lock). | Diêgo (aguardando ciência de Abby e Lucas) |
+| D-06 | Formato do código curto | Proposta | 2026-10-16 | Aleatório: 7 caracteres `[a-z0-9]` (configurável). Personalizado: 3-50 `[A-Za-z0-9_-]`. Redirect canônico em `/r/{code}`, com `/{code}` aceito por compatibilidade. | |
+| D-07 | Organização do repositório GitOps | Proposta | 2026-10-16 | Monorepo; `k8s/kustomization.yaml` como fonte do ArgoCD (path `k8s`, branch `main`); o CI atualiza `images.newTag` por commit. | |
+| D-08 | Mascote (personagem): Furl, o artista que dobra os atalhos (arte final em `public/mascot/*.webp`) | Proposta | | Candidatos: Furl (artista que dobra o espaço) e gatinho da caixa (estilo chibi/cartoon). O frontend trata o mascote como componente trocável | |
+| D-09 | Ferramentas e configuração de observabilidade (coleta, armazenamento de traces e métricas, dashboards) | Confirmada | 2026-10-15| OpenTelemetry Collector (OTLP), Tempo (traces), Prometheus (métricas) e Grafana (dashboards). Alternativa descartada: Jaeger. Detalhes de implantação ficam no design da spec 04 | Abby e Diêgo|
+| D-10 | Registry de imagens de contêiner | Proposta | 2026-10-16 | GHCR (`ghcr.io/<owner>/<repo>/{api,frontend}`), autenticado pelo GITHUB_TOKEN do Actions; pacotes precisam ser públicos ou usar imagePullSecret. | |
+| D-11 | Contrato da API usado pelo frontend: o do `openapi.yaml`. `POST /api/links` com `{ original_url }` → 201 com o link; `GET /api/links` → 200 `{ total, items }`; erros `{ error, message }`. O `api.js` converte para o formato camelCase dos componentes | Proposta | 2026-10-17 | O contrato provisório do frontend (`{ url }`, lista como array) divergia da API. A conversão ficou restrita ao `api.js`, como a decisão original previa | |
+| D-12 | Roteamento das telas do visitante (link inexistente, expirado) | Proposta | 2026-10-17 | O nginx intercepta 404 e 410 da API em `/r/` e entrega o app na mesma URL; a rota `/r/:code` mostra a tela do Furl. O status HTTP original é mantido. Alternativa descartada: a API redirecionar para uma rota do frontend (acoplaria a API ao frontend) | |
+| D-13 | Comunicação do frontend com a API | Proposta | 2026-10-17 | Mesma origem: proxy de `/api` e `/r` no nginx do frontend (produção) e no Vite (desenvolvimento). Sem CORS e sem variáveis de ambiente no build | |
+| D-14 | OpenTelemetry no navegador | Proposta | 2026-10-17 | `src/api/tracing.js`, sem dependências: `traceparent` W3C em cada chamada e span `kiro-browser` em OTLP/JSON para `/otlp` (nginx → Collector). Alternativa: SDK oficial `@opentelemetry/sdk-trace-web` (mais peso no bundle para o mesmo resultado) | |
+| D-15 | Paleta visual: Índigo, papel e coral, em versão clara (fundo `--color-mist`, texto índigo) | Proposta | | Índigo #14182B, azul-ardósia #2C3A5E, branco-papel #F7F3EA, kraft #CDB28A, coral #F2553D, ciano #2DE2E6 (valores de referência) | |
+| D-16 | Nome do portal: **Foldway** (feature exclusiva proposta em D-17) | Proposta | | | |
+| D-17 | Feature exclusiva: **QR Code** de cada link curto, com o origami no centro, download em PNG e acessos medidos (`kiro_feature_used_total{feature="qrcode"}`, via `/r/{code}?via=qr`) | Proposta | 2026-10-17 | Gerado no navegador (`qrcode-generator`), sem endpoint novo. Alternativa descartada: gerar o PNG na API (mais código no backend e o visual não acompanharia o tema) | |
 
 Estados possíveis:
 
@@ -147,7 +154,7 @@ Os critérios específicos de aceitação e verificação deverão ser definidos
 4. O código e a infraestrutura devem ser revisados e verificados conforme os critérios de aceitação aplicáveis.
 5. O uso do Kiro deve ser acompanhado de revisão humana e registro das decisões relevantes.
 6. O grupo deve manter a documentação alinhada à implementação, evitando divergências entre requisitos, design, tarefas e código.
-7. Podem aprovar documentos e decisões: <>.
+7. Podem aprovar documentos e decisões: Joseph Roberto.
 
 ## 11. Referências do projeto
 

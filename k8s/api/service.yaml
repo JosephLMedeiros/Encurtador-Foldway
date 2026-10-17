@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: api
+  labels:
+    app: api
+    app.kubernetes.io/component: api
+spec:
+  # ClusterIP: a API é acessada pelo frontend (nginx faz proxy de /api e /r).
+  # Porta 8080 igual à do docker-compose, para o nginx usar o mesmo upstream nos dois ambientes.
+  type: ClusterIP
+  selector:
+    app: api
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http

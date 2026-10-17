@@ -1,0 +1,201 @@
+openapi: 3.0.3
+info:
+  title: Kiro Portal - Cloud-Native URL Shortener API
+  version: 1.2.0
+  description: |
+    API oficial do encurtador de links multiverso do Kiro (implementação: Python/FastAPI, D-03).
+    A documentação interativa gerada pela própria API fica em /docs.
+    Mudanças da 1.1.0: redirect canônico em /r/{shortCode} (/{shortCode} mantido por compatibilidade),
+    listagem retorna {total, items}, qr_code_url adiado para a etapa de features.
+    Mudanças da 1.2.0: o QR Code é gerado no navegador e aponta para /r/{shortCode}?via=qr,
+    o que permite medir os acessos vindos do QR (feature "qrcode").
+paths:
+  /api/links:
+    get:
+      summary: Lista os links criados (mais recentes primeiro), com paginação
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50, minimum: 0, maximum: 200 }
+        - name: offset
+          in: query
+          schema: { type: integer, default: 0, minimum: 0 }
+      responses:
+        '200':
+          description: Página de links
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total: { type: integer }
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Link' }
+        '400': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+
+    post:
+      summary: Cria um link curto (aleatório ou personalizado via custom_code)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [original_url]
+              properties:
+                original_url:
+                  type: string
+                  format: uri
+                  example: "https://github.com/cloudops-bootcamp/hackathon"
+                custom_code:
+                  type: string
+                  pattern: '^[A-Za-z0-9_-]{3,50}$'
+                  example: "kiro-portal-pro"
+                expires_at:
+                  type: string
+                  format: date-time
+      responses:
+        '201':
+          description: Link criado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Link' }
+        '400':
+          description: URL inválida, custom_code inválido/reservado ou expires_at no passado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '409':
+          description: custom_code já está em uso
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /r/{shortCode}:
+    get:
+      summary: Redireciona para a URL original e contabiliza o clique
+      description: Também disponível em /{shortCode} (compatibilidade).
+      parameters:
+        - $ref: '#/components/parameters/ShortCode'
+        - name: via
+          in: query
+          required: false
+          description: Origem do acesso. `qr` = veio do QR Code do frontend (conta kiro_feature_used_total{feature="qrcode"}).
+          schema: { type: string, enum: [qr] }
+      responses:
+        '302':
+          description: Redirecionamento para o destino original
+        '404':
+          description: Link curto não encontrado no multiverso do Kiro
+        '410':
+          description: Link expirado
+
+  /api/links/{shortCode}/stats:
+    get:
+      summary: Estatísticas de um link (inclusive expirados)
+      parameters:
+        - $ref: '#/components/parameters/ShortCode'
+      responses:
+        '200':
+          description: Estatísticas (inclui série de cliques por hora das últimas 24h)
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Link'
+                  - type: object
+                    properties:
+                      last_24h:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            hour: { type: string, format: date-time }
+                            clicks: { type: integer }
+        '400': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /api/ranking:
+    get:
+      summary: Ranking dos links mais clicados na janela ("link do dia")
+      parameters:
+        - name: hours
+          in: query
+          schema: { type: integer, default: 24, minimum: 1, maximum: 720 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 10, minimum: 1, maximum: 50 }
+      responses:
+        '200':
+          description: Ranking
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  hours: { type: integer }
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        position: { type: integer }
+                        short_code: { type: string }
+                        short_url: { type: string }
+                        original_url: { type: string }
+                        clicks: { type: integer }
+        '400': { $ref: '#/components/responses/Error' }
+
+  /healthz:
+    get:
+      summary: Liveness probe (processo vivo, não consulta o banco)
+      responses:
+        '200': { description: OK }
+
+  /readyz:
+    get:
+      summary: Readiness probe (banco responde ao SELECT 1 em até 2s)
+      responses:
+        '200': { description: Pronta }
+        '503': { description: Banco de dados indisponível }
+
+  /metrics:
+    get:
+      summary: Métricas no formato Prometheus
+      responses:
+        '200':
+          description: Métricas
+          content:
+            text/plain:
+              schema: { type: string }
+
+components:
+  parameters:
+    ShortCode:
+      name: shortCode
+      in: path
+      required: true
+      schema: { type: string, pattern: '^[A-Za-z0-9_-]{3,50}$' }
+  schemas:
+    Link:
+      type: object
+      properties:
+        short_code: { type: string }
+        short_url: { type: string, example: "https://kiro.to/r/kiro-portal-pro" }
+        original_url: { type: string }
+        clicks: { type: integer }
+        created_at: { type: string, format: date-time }
+        expires_at: { type: string, format: date-time, nullable: true }
+    Error:
+      type: object
+      properties:
+        error: { type: string, example: "code_in_use" }
+        message: { type: string }
+  responses:
+    Error:
+      description: Erro
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
