@@ -1,6 +1,6 @@
 /**
  * Testes de NotFoundLinkPage e NotFoundPage
- * CA-22.1 — rota /link-inexistente renderiza NotFoundLinkPage
+ * CA-22.1 — rota /r/:code renderiza NotFoundLinkPage
  * CA-22.3 — link retorna o usuário a /
  * CA-22.4 — mascote aparece na pose error
  * CA-23.1 — rota curinga renderiza NotFoundPage
@@ -22,7 +22,7 @@ function renderWithRouter(initialPath) {
   return render(
     <MemoryRouter initialEntries={[initialPath]}>
       <Routes>
-        <Route path="/link-inexistente" element={<NotFoundLinkPage />} />
+        <Route path="/r/:code" element={<NotFoundLinkPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </MemoryRouter>,
@@ -31,20 +31,20 @@ function renderWithRouter(initialPath) {
 
 /* ── NotFoundLinkPage ────────────────────────────────────────────────────── */
 describe('NotFoundLinkPage', () => {
-  it('CA-22.1 — rota /link-inexistente renderiza o componente', () => {
-    renderWithRouter('/link-inexistente');
+  it('CA-22.1 — rota /r/:code renderiza o componente', () => {
+    renderWithRouter('/r/abc1234');
     expect(screen.getByText(/Link não encontrado/i)).toBeInTheDocument();
   });
 
   it('CA-22.3 — contém link que leva a /', () => {
-    renderWithRouter('/link-inexistente');
+    renderWithRouter('/r/abc1234');
     const link = screen.getByRole('link', { name: /Voltar/i });
     expect(link).toBeInTheDocument();
     expect(link).toHaveAttribute('href', '/');
   });
 
   it('CA-22.4 — mascote aparece na pose error', () => {
-    renderWithRouter('/link-inexistente');
+    renderWithRouter('/r/abc1234');
     expect(screen.getByRole('img', { name: errorAlt })).toBeInTheDocument();
   });
 });

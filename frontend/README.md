@@ -1,110 +1,75 @@
-# Frontend — Foldway (sugestão de nome, D-16 pendente)
+# Frontend — Foldway
 
-Interface web do encurtador de links. Construída com **React 19 + Vite**, **React Router v7**, CSS puro com variáveis de tema e sem TypeScript.
+Interface web do encurtador de links. **React 19 + Vite**, **React Router v7**, CSS puro com variáveis de tema, sem TypeScript.
 
----
+A API fica na mesma origem: em produção o nginx deste diretório encaminha `/api` e `/r` para ela; em desenvolvimento o Vite faz o mesmo papel. Por isso não há variáveis de ambiente nem CORS.
 
-## Pré-requisitos
+## Rodando
 
-- Node.js ≥ 18
-- npm ≥ 9
-
----
-
-## Instalação
+Pré-requisitos: Node.js 22 (o mesmo da imagem Docker) e a API no ar.
 
 ```sh
+# na raiz do repositório: banco + API na porta 8080
+docker compose up -d api
+
+# neste diretório
 npm install
+npm run dev          # http://localhost:5173
 ```
 
----
+A API em outro endereço: `API_URL=http://outro-host:8080 npm run dev`.
 
-## Desenvolvimento
+Para ver tudo como em produção (nginx + API + observabilidade): `docker compose up --build` na raiz e abra http://localhost:3000.
 
-```sh
-npm run dev
-```
+## Scripts
 
-Abre em `http://localhost:5173`. Por padrão usa o mock da API (sem servidor real).
+| Comando | O que faz |
+|---|---|
+| `npm run dev` | Servidor de desenvolvimento com proxy para a API |
+| `npm test` | Testes unitários, de componente e de acessibilidade (axe) |
+| `npm run lint` | ESLint (JS/JSX) |
+| `npm run lint:css` | Stylelint (CSS, com padrão BEM e sem cores hexadecimais fora do tema) |
+| `npm run build` | Bundle de produção em `dist/` |
 
-### Variáveis de ambiente
+O CI (`.github/workflows/ci-cd.yaml`) roda lint, testes e build a cada push e PR.
 
-Copie `.env.example` para `.env.local` e ajuste conforme necessário:
+## Contrato com a API
 
-```sh
-cp .env.example .env.local
-```
+Só `src/api/api.js` faz chamadas de rede (regra do ESLint). Ele converte o contrato da API (`openapi.yaml`, snake_case) para o formato dos componentes:
 
-| Variável | Padrão (dev) | Descrição |
+| Função | Chamada | Retorno |
 |---|---|---|
-| `VITE_API_BASE_URL` | `""` (mesmo domínio) | Endereço base da API real (sem barra final) |
-| `VITE_USE_MOCK` | `true` | `true` ativa o mock; `false` usa a API real |
-| `VITE_MOCK_DELAY_MS` | `""` (sem delay) | Atraso artificial das respostas do mock (ms) |
-| `VITE_MOCK_ERROR` | `false` | `true` faz o mock rejeitar todas as chamadas |
+| `createLink(url)` | `POST /api/links` com `{ original_url }` | `{ shortCode, shortUrl, originalUrl, createdAt, clicks }` |
+| `listLinks()` | `GET /api/links` | lista no mesmo formato, mais recente primeiro |
 
-> Os arquivos `.env.development` e `.env.production` estão versionados com os valores padrão de cada ambiente. Crie `.env.local` para sobrescrever localmente — ele está no `.gitignore`.
+Erro 400 vira `Error` com mensagem para o visitante e `type: 'validation'`; outros erros viram "Falha na comunicação com o servidor".
 
----
+## QR Code
 
-## Testes
+Cada link curto tem um QR Code (no resultado e no botão **QR Code** de cada item da lista), gerado no navegador com `qrcode-generator`:
 
-```sh
-npm test
-```
+- módulos em índigo sobre papel branco (contraste máximo para a câmera) e o origami coral no centro, com correção de erro nível H;
+- cartão com o canto dobrado, a assinatura visual do Foldway, e download em PNG (1024 px);
+- o QR aponta para `/r/{código}?via=qr`, e a API conta esses acessos em `kiro_feature_used_total{feature="qrcode"}`.
 
-Roda todos os testes uma vez (`vitest --run`). Inclui testes unitários, de componente e verificações de acessibilidade com axe.
+Um teste decodifica o QR gerado com `jsqr` para garantir que ele continua legível com o origami no centro.
 
----
+## Link inexistente ou expirado
 
-## Lint
+Quando a API responde 404 ou 410 em `/r/{código}`, o nginx entrega o app na mesma URL e a rota `/r/:code` mostra a tela do Furl. O status HTTP original é mantido.
 
-```sh
-# JavaScript e JSX
-npm run lint
+## Mascote
 
-# CSS
-npm run lint:css
-```
+As imagens do Furl ficam em `public/mascot/` (`welcome`, `loading`, `success`, `error`, `empty`, em `.webp`). Para trocar o mascote, substitua os arquivos e ajuste os textos alternativos em `src/config/mascot.js`; nenhum componente precisa mudar.
 
----
-
-## Build de produção
-
-```sh
-npm run build
-```
-
-O bundle é gerado em `dist/`. O valor de `VITE_API_BASE_URL` é embutido no bundle no momento do build — alterar o endereço da API exige rebuild.
-
-```sh
-# Pré-visualizar o build localmente
-npm run preview
-```
-
----
-
-## Mascote (D-08 pendente)
-
-As imagens do mascote são SVGs provisórios em `public/mascot/`. Para substituir pela arte final:
-
-1. Coloque os novos arquivos em `public/mascot/` com os mesmos nomes: `welcome.svg`, `loading.svg`, `success.svg`, `error.svg`, `empty.svg`.
-2. Atualize os textos alternativos (`alt`) em `src/config/mascot.js` se necessário.
-3. Atualize o campo `name` em `src/config/mascot.js` com o nome definitivo do mascote.
-
-Nenhum componente precisa ser alterado.
-
----
-
-## Estrutura relevante
+## Estrutura
 
 ```
 src/
-├── api/          # api.js (interface pública) e mock.js
-├── components/   # CopyButton, LinkForm, LinkItem, LinkList, Mascot
-├── config/       # mascot.js — configuração centralizada do mascote
-├── lib/          # mascotPose.js — lógica pura de prioridade de poses
+├── api/          # api.js — única porta de rede, converte o contrato da API
+├── components/   # CopyButton, FoldAnimation, LinkForm, LinkList, Mascot, QrCode
+├── config/       # mascot.js — poses e textos do mascote
+├── lib/          # funções puras: pose do mascote, QR Code, desenho do origami
 ├── pages/        # HomePage, NotFoundLinkPage, NotFoundPage
-└── styles/       # theme.css (variáveis CSS) e global.css
-public/
-└── mascot/       # imagens SVG do mascote (provisórias)
+└── styles/       # theme.css (única fonte de cores) e global.css
 ```

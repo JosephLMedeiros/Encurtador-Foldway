@@ -1,5 +1,4 @@
 /* ─── LinkForm ───────────────────────────────────────────────────────────── */
-/* stylelint-disable selector-class-pattern */
 
 /* Cartão com o canto superior direito dobrado (a assinatura do Foldway) */
 .link-form {
@@ -117,14 +116,15 @@
   }
 }
 
-/* Resultado: o origami pronto */
+/* Resultado: o origami pronto, com o QR Code impresso ao lado */
 .link-form__result {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  justify-content: space-between;
+  gap: 1rem 1.5rem;
   flex-wrap: wrap;
   margin-top: 1.25rem;
-  padding: 1rem;
+  padding: 1rem 1rem 1rem 1.25rem;
   background-color: var(--color-surface);
   border: 1px solid var(--color-highlight);
   border-radius: var(--radius-control);
@@ -132,7 +132,25 @@
   animation: result-in 0.4s ease-out;
 }
 
+.link-form__share {
+  display: flex;
+  flex: 1 1 16rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+.link-form__result-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-secondary);
+}
+
 .link-form__short-url {
+  max-width: 100%;
   padding: 0.3rem 0.8rem;
   background-color: var(--color-accent);
   color: var(--color-on-accent);
@@ -153,4 +171,3 @@
     transform: translateY(8px) scale(0.98);
   }
 }
-/* stylelint-enable selector-class-pattern */

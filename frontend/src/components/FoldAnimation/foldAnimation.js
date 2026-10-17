@@ -7,7 +7,9 @@
  *   f.destroy();
  * onDone({ status: 'ok' | 'error', shortUrl? }) é chamado ao final.
  */
-const D = { paper: 350, crease: 600, fold: 650, morph: 550, land: 450 }; // ms (≈3,7 s no total)
+import { ORIGAMI_SVG } from '../../lib/origami.js';
+
+const D ={ paper: 350, crease: 600, fold: 650, morph: 550, land: 450 }; // ms (≈3,7 s no total)
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const CANCEL = Symbol('cancel');
 const FAIL = Symbol('fail');
@@ -22,13 +24,7 @@ const MARKUP = `
   <div class="fold__flap fold__flap--y"><i></i><i></i></div>
 </div>
 <div class="fold__origami">
-  <svg viewBox="0 0 64 64" aria-hidden="true">
-    <polygon points="58,8 6,30 26,38" fill="var(--color-accent)" />
-    <polygon points="58,8 6,30 26,38" fill="var(--color-paper-white)" fill-opacity=".3" />
-    <polygon points="58,8 26,38 30,58" fill="var(--color-accent)" />
-    <polygon points="58,8 30,58 40,40" fill="var(--color-indigo-night)" fill-opacity=".28" />
-    <polygon points="26,38 30,58 20,44" fill="var(--color-indigo-night)" fill-opacity=".4" />
-  </svg>
+  <svg viewBox="0 0 64 64" aria-hidden="true">${ORIGAMI_SVG}</svg>
   <span class="fold__code"></span>
 </div>`;
 

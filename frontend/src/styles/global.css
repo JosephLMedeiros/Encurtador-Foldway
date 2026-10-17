@@ -54,6 +54,38 @@ img {
   outline: none;
 }
 
+/* ─── Botão contornado em índigo (copiar, QR, baixar, tentar de novo) ──────
+   O coral fica reservado para os origamis e para a ação principal. */
+.btn-outline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.3rem 0.85rem;
+  background-color: transparent;
+  color: var(--color-text);
+  border: 1.5px solid var(--color-text);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 600;
+  font-family: inherit;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.btn-outline:hover,
+.btn-outline[aria-expanded="true"] {
+  background-color: var(--color-text);
+  color: var(--color-surface);
+}
+
+/* Estado de confirmação (ex.: "Copiado"): índigo sobre ciano, contraste alto */
+.btn-outline--done,
+.btn-outline--done:hover {
+  background-color: var(--color-highlight);
+  border-color: var(--color-highlight);
+  color: var(--color-text);
+}
+
 /* ─── Utilitário sr-only (RF-21, CopyButton) ─────────────────────────────── */
 
 /* Oculta visualmente mas mantém acessível por leitores de tela */

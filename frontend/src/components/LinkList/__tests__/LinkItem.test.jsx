@@ -4,7 +4,7 @@
  * CA-21.5 — CopyButton presente
  */
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { LinkItem } from '../LinkItem.jsx';
 
 /* Mock de clipboard para que CopyButton não quebre */
@@ -50,5 +50,21 @@ describe('CA-21.5 — CopyButton presente no item', () => {
     expect(
       screen.getByRole('button', { name: /Copiar link curto/i }),
     ).toBeInTheDocument();
+  });
+});
+
+describe('QR Code no item', () => {
+  it('o botão QR Code mostra e esconde o QR do link', () => {
+    render(<LinkItem link={LINK} />);
+    const toggle = screen.getByRole('button', { name: /QR Code do link/i });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('img', { name: /QR Code que abre/ })).not.toBeInTheDocument();
+
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('img', { name: `QR Code que abre ${LINK.shortUrl}` })).toBeInTheDocument();
+
+    fireEvent.click(toggle);
+    expect(screen.queryByRole('img', { name: /QR Code que abre/ })).not.toBeInTheDocument();
   });
 });

@@ -1,7 +1,4 @@
 /* ─── Mascote (Furl) ─────────────────────────────────────────────────────── */
-/* stylelint-disable selector-class-pattern */
-
-/* Razão: convenção BEM com modificador "--" (mascot--pose) — intencional. */
 .mascot {
   display: block;
   width: 100%;
@@ -34,4 +31,3 @@
     animation: none;
   }
 }
-/* stylelint-enable selector-class-pattern */

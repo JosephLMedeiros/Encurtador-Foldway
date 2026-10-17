@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import './CopyButton.css';
 
 /**
  * Botão de copiar link curto para a área de transferência.
@@ -29,7 +28,7 @@ export function CopyButton({ url, label }) {
         type="button"
         aria-label={label}
         onClick={handleCopy}
-        className={`copy-button${copied ? ' copy-button--copied' : ''}`}
+        className={`btn-outline${copied ? ' btn-outline--done' : ''}`}
       >
         {copied ? 'Copiado' : 'Copiar'}
       </button>

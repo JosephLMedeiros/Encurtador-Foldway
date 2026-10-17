@@ -71,11 +71,6 @@ export default function HomePage() {
     }
   }
 
-  /* ── handleRetry — SEM limpar listError (RF-31) ────────────────────────── */
-  function handleRetry() {
-    fetchList();
-  }
-
   return (
     <main className="home-page">
       <header className="hero">
@@ -107,7 +102,7 @@ export default function HomePage() {
           listLoading={listLoading}
           listError={listError}
           links={links}
-          onRetry={handleRetry}
+          onRetry={fetchList}
         />
       </section>
     </main>

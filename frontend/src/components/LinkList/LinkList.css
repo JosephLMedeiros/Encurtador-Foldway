@@ -1,9 +1,5 @@
 /* ─── LinkList e LinkItem ─────────────────────────────────────────────────── */
 
-/* stylelint-disable selector-class-pattern */
-
-/* Razão: nomenclatura BEM com "__" e "--" — intencional. */
-
 .link-list {
   list-style: none;
   padding: 0;
@@ -81,19 +77,5 @@
 
 .link-list__retry {
   margin-top: 0.5rem;
-  padding: 0.5rem 1rem;
-  background-color: transparent;
-  color: var(--color-text);
-  border: 1.5px solid var(--color-text);
-  border-radius: var(--radius-control);
-  cursor: pointer;
-  font-family: inherit;
-  font-weight: 600;
 }
 
-.link-list__retry:hover {
-  background-color: var(--color-text);
-  color: var(--color-surface);
-}
-
-/* stylelint-enable selector-class-pattern */

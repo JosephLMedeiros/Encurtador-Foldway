@@ -1,7 +1,5 @@
 /* ─── HomePage ───────────────────────────────────────────────────────────── */
 
-/* stylelint-disable selector-class-pattern */
-
 .home-page {
   position: relative;
   display: flex;
@@ -117,4 +115,3 @@
   .hero__copy { padding-bottom: 0; }
 }
 
-/* stylelint-enable selector-class-pattern */

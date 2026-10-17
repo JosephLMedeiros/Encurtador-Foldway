@@ -43,13 +43,9 @@ export default defineConfig([
   },
 
   /* ─── Bloco 2: proibir hexadecimais em strings JS/JSX (CA-25.2) ─────── */
-  /* Cobre src/components/, src/pages/ e src/animations/; exclui testes    */
+  /* Cores só via variáveis CSS (src/styles/theme.css); exclui testes      */
   {
-    files: [
-      'src/components/**/*.{js,jsx}',
-      'src/pages/**/*.{js,jsx}',
-      'src/animations/**/*.{js,jsx}',
-    ],
+    files: ['src/**/*.{js,jsx}'],
     ignores: ['**/*.test.{js,jsx}', '**/*.spec.{js,jsx}'],
     rules: {
       'no-restricted-syntax': [
@@ -63,23 +59,9 @@ export default defineConfig([
     },
   },
 
-  /* ─── Bloco 3: proibir endereços hardcoded em api.js (CA-02.2) ────────── */
+  /* ─── Configs de ferramentas (Vite) rodam no Node ─────────────────────── */
   {
-    files: ['src/api/api.js'],
-    rules: {
-      'no-restricted-syntax': [
-        'error',
-        {
-          selector: 'Literal[value=/localhost/]',
-          message:
-            'Não use "localhost" diretamente em api.js. Use VITE_API_BASE_URL.',
-        },
-        {
-          selector: 'Literal[value=/127\\.0\\.0/]',
-          message:
-            'Não use "127.0.0.x" diretamente em api.js. Use VITE_API_BASE_URL.',
-        },
-      ],
-    },
+    files: ['*.config.js'],
+    languageOptions: { globals: globals.node },
   },
 ]);

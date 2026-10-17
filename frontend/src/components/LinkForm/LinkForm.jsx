@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { CopyButton } from '../CopyButton/CopyButton.jsx';
 import { FoldAnimation } from '../FoldAnimation/FoldAnimation.jsx';
+import { QrCode } from '../QrCode/QrCode.jsx';
 import './LinkForm.css';
 
 /**
@@ -104,17 +105,18 @@ export function LinkForm({
         />
       )}
 
-      {/* Resultado de sucesso — link curto com CopyButton (RF-11, CA-21.5) */}
+      {/* Resultado de sucesso — link curto com CopyButton e QR Code (RF-11, CA-21.5) */}
       {lastShortUrl && (
-        <div
-          className={`link-form__result${folding ? ' link-form__result--pending' : ''}`}
-          aria-live="polite"
-        >
-          <span className="link-form__short-url">{lastShortUrl}</span>
-          <CopyButton
-            url={lastShortUrl}
-            label={`Copiar link curto ${lastShortUrl}`}
-          />
+        <div className={`link-form__result${folding ? ' link-form__result--pending' : ''}`}>
+          <div className="link-form__share" aria-live="polite">
+            <span className="link-form__result-label">Seu link curto</span>
+            <span className="link-form__short-url">{lastShortUrl}</span>
+            <CopyButton
+              url={lastShortUrl}
+              label={`Copiar link curto ${lastShortUrl}`}
+            />
+          </div>
+          {!folding && <QrCode shortUrl={lastShortUrl} />}
         </div>
       )}
     </section>

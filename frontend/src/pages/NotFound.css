@@ -1,7 +1,5 @@
 /* ─── Telas de "não encontrado" ──────────────────────────────────────────── */
 
-/* stylelint-disable selector-class-pattern */
-
 .not-found-page {
   display: flex;
   flex-direction: column;
@@ -34,4 +32,3 @@
 
 .not-found-page a:hover { filter: brightness(1.06); }
 
-/* stylelint-enable selector-class-pattern */

@@ -4,16 +4,15 @@ import { Mascot } from '../components/Mascot/Mascot.jsx';
 
 /**
  * Tela de link não encontrado (RF-22).
- * Exibida quando o código curto não existe na API.
- * Rota interna provisória: /link-inexistente
- * O caminho definitivo depende de D-12 (pendente).
+ * Exibida em /r/:code quando a API responde 404 (não existe) ou 410 (expirou);
+ * o nginx entrega o app nesses casos (D-12).
  */
 export default function NotFoundLinkPage() {
   return (
     <main className="not-found-page">
       <Mascot pose="error" />
       <h1>Link não encontrado</h1>
-      <p>Esse origami não encontrou destino. O papel foi rasgado ou nunca existiu.</p>
+      <p>Esse origami não encontrou destino: o link expirou ou nunca existiu.</p>
       <Link to="/">Voltar à página inicial e criar um link</Link>
     </main>
   );

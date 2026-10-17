@@ -140,3 +140,11 @@ describe('CA-13.1 a CA-13.3 — erro de rede', () => {
     expect(screen.getByRole('button', { name: /Encurtar/i })).not.toBeDisabled();
   });
 });
+
+/* ── QR Code no resultado ─────────────────────────────────────────────── */
+describe('QR Code do link criado', () => {
+  it('aparece junto do link curto', () => {
+    renderForm({ submitStatus: 'success', lastShortUrl: 'http://localhost/r/abc' });
+    expect(screen.getByRole('img', { name: 'QR Code que abre http://localhost/r/abc' })).toBeInTheDocument();
+  });
+});

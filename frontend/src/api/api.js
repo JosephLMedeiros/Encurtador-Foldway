@@ -2,65 +2,66 @@
  * Módulo de acesso à API — única porta de entrada para chamadas de rede.
  * Nenhum componente deve importar fetch diretamente (CA-01.2).
  *
- * Seleciona entre implementação real e mock via VITE_USE_MOCK (RF-03).
- * Endereço base lido de VITE_API_BASE_URL em build-time (RF-02).
+ * A API fica na mesma origem: o nginx (produção) e o Vite (desenvolvimento)
+ * encaminham /api e /r para ela. Este módulo converte o contrato da API
+ * (openapi.yaml, snake_case) para o formato usado pelos componentes.
  */
-import * as mockApi from './mock.js';
 
-const BASE = import.meta.env.VITE_API_BASE_URL ?? '';
+const NETWORK_ERROR = 'Falha na comunicação com o servidor';
 
-/* ── Implementação real ────────────────────────────────────────────────── */
+/* Mensagens para o visitante; os códigos vêm do campo "error" da API */
+const VALIDATION_MESSAGES = {
+  invalid_url: 'Informe uma URL completa, começando com http:// ou https://',
+};
 
-async function realCreateLink(url) {
-  const res = await fetch(`${BASE}/api/links`, {
+/* Converte um link da API para o formato dos componentes */
+function toLink(item) {
+  return {
+    shortCode: item.short_code,
+    shortUrl: item.short_url,
+    originalUrl: item.original_url,
+    createdAt: item.created_at,
+    clicks: item.clicks,
+  };
+}
+
+/**
+ * Cria um link curto.
+ * Em 400 lança Error com a mensagem da API e type 'validation'.
+ * @param {string} url - URL original a encurtar
+ * @returns {Promise<{ shortCode, shortUrl, originalUrl, createdAt, clicks }>}
+ */
+export async function createLink(url) {
+  const res = await fetch('/api/links', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url }),
+    body: JSON.stringify({ original_url: url }),
   });
 
   if (res.status === 201) {
-    return res.json();
+    return toLink(await res.json());
   }
 
   if (res.status === 400) {
     const body = await res.json();
-    throw Object.assign(new Error(body.error), { type: 'validation' });
+    const message = VALIDATION_MESSAGES[body.error] ?? body.message ?? 'URL inválida';
+    throw Object.assign(new Error(message), { type: 'validation' });
   }
 
-  throw new Error('Falha na comunicação com o servidor');
-}
-
-async function realListLinks() {
-  const res = await fetch(`${BASE}/api/links`);
-
-  if (res.status === 200) {
-    return res.json();
-  }
-
-  throw new Error('Falha na comunicação com o servidor');
-}
-
-/* ── Seleção de implementação (CA-03.1, CA-03.2) ────────────────────────── */
-
-/**
- * Cria um link curto.
- * @param {string} url - URL original a encurtar
- * @returns {{ shortCode, shortUrl, originalUrl, createdAt }}
- */
-export async function createLink(url) {
-  if (import.meta.env.VITE_USE_MOCK === 'true') {
-    return mockApi.createLink(url);
-  }
-  return realCreateLink(url);
+  throw new Error(NETWORK_ERROR);
 }
 
 /**
- * Lista todos os links criados.
- * @returns {{ shortCode, originalUrl, createdAt, clicks }[]}
+ * Lista os links mais recentes (a API já devolve do mais novo ao mais antigo).
+ * @returns {Promise<{ shortCode, shortUrl, originalUrl, createdAt, clicks }[]>}
  */
 export async function listLinks() {
-  if (import.meta.env.VITE_USE_MOCK === 'true') {
-    return mockApi.listLinks();
+  const res = await fetch('/api/links');
+
+  if (res.status === 200) {
+    const body = await res.json();
+    return body.items.map(toLink);
   }
-  return realListLinks();
+
+  throw new Error(NETWORK_ERROR);
 }

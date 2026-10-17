@@ -12,9 +12,9 @@ import NotFoundPage from '../NotFoundPage.jsx';
 describe('CA-30.1 / CA-30.2 — NotFoundLinkPage sem violações axe', () => {
   it('não tem violações de acessibilidade', async () => {
     const { container } = render(
-      <MemoryRouter initialEntries={['/link-inexistente']}>
+      <MemoryRouter initialEntries={['/r/abc1234']}>
         <Routes>
-          <Route path="/link-inexistente" element={<NotFoundLinkPage />} />
+          <Route path="/r/:code" element={<NotFoundLinkPage />} />
         </Routes>
       </MemoryRouter>,
     );

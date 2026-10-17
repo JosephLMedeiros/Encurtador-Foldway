@@ -1,5 +1,4 @@
 /* ─── Animação de dobra: papel bruto → origami ───────────────────────────── */
-/* stylelint-disable selector-class-pattern */
 .fold {
   --w: 360px;
   --h: 112px;
@@ -322,4 +321,3 @@
     translate: 7px 0;
   }
 }
-/* stylelint-enable selector-class-pattern */
