@@ -78,6 +78,22 @@ O que fica disponível:
 | Grafana | http://localhost:3001 (abre direto no dashboard; admin / `troque-esta-senha`) |
 | Prometheus | http://localhost:9090 |
 
+Para testar sem o navegador, você pode usar a API pelo terminal. O `curl` é uma ferramenta que faz requisições HTTP:
+
+1. **O primeiro `curl` cria um link curto**, o mesmo que o botão **Encurtar** do site. Ele pede ao portal para criar `localhost:3000/r/meu-portal` apontando para `https://example.com`. O `custom_code` é o código escolhido (sem ele, a API gera um aleatório). Se rodar o comando duas vezes, a segunda devolve **409**, porque o código já existe: para repetir, troque o `custom_code`.
+
+2. **O segundo `curl` acessa o link curto**, como um visitante. O `-i` mostra os cabeçalhos da resposta: o esperado é `302 Found` com `location: https://example.com`, e o clique é contado. Um código que não existe devolve `404`.
+
+3. **O script gera tráfego** por 120 segundos, para os painéis do Grafana terem dados.
+
+
+```bash
+curl -X POST localhost:3000/api/links -H 'content-type: application/json' \
+  -d '{"original_url":"https://example.com","custom_code":"meu-portal"}'
+curl -i localhost:3000/r/meu-portal          # 302 -> destino, conta o clique
+scripts/gerar-trafego.sh http://localhost:3000 120
+```
+
 ```bash
 curl -X POST localhost:3000/api/links -H 'content-type: application/json' \
   -d '{"original_url":"https://example.com","custom_code":"meu-portal"}'
@@ -317,7 +333,13 @@ O contrato está em [docs/otel-metrics-spec.md](docs/otel-metrics-spec.md).
   - **link do dia** (SQL no Postgres);
   - spans por componente e **traces recentes** com link para o trace no Tempo.
 
-**Roteiro da demo:** rode `scripts/gerar-trafego.sh` e mostre os painéis subindo. Depois clique num Trace ID em "Traces recentes" para mostrar o trace atravessando frontend → API → banco.
+**Roteiro da demo:**
+
+1. Rode `scripts/gerar-trafego.sh http://localhost:3000 120` e mostre os painéis subindo. O Grafana abre como visitante, sem login.
+2. Para abrir um trace, clique em **Sign in** e entre com `admin` / `troque-esta-senha`. Sem o login, o clique no Trace ID só recarrega a página.
+3. No painel inferior direito, clique num Trace ID em "Traces recentes" para mostrar o trace atravessando frontend → API → banco.
+
+> O span `kiro-browser` só aparece em ações feitas pelo site (criar e listar links). Redirects abertos na barra de endereço, `curl` ou o script de tráfego começam no `kiro-frontend`. Para ver a cadeia completa, crie um link pelo site.
 
 ## Decisões técnicas (resumo)
 
