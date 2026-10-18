@@ -301,10 +301,18 @@ flowchart LR
 
 #### O que o pipeline faz
 
-O `.github/workflows/ci-cd.yaml` roda em **Pull Request** e em **push na `main`**:
+O `.github/workflows/ci-cd.yaml` roda em **Pull Request**, em **push nas branches `main` e `develop`** e também manualmente (aba **Actions** → *Run workflow*). Ele sempre roda o pytest, o lint e os testes do frontend, valida os manifests com kubeconform e builda as imagens. O que muda é o destino das imagens:
 
-- **Em Pull Request:** roda o pytest e o lint da API, o lint, os testes e o build do frontend, valida os manifests com kubeconform e builda as imagens. O job que atualiza a tag **não roda**, então um PR nunca muda o cluster.
-- **Depois do merge na `main`:** além de tudo isso, publica as imagens em `ghcr.io/<owner>/<repo>/{api,frontend}:<sha>` e **commita a nova tag** em `k8s/kustomization.yaml` (commit `deploy: ...` do bot).
+| Evento | Testes e build | Publica imagens no GHCR | Atualiza a tag e dispara o deploy |
+|---|---|---|---|
+| Pull Request | sim | não | não |
+| Push na `develop` | sim | não | não |
+| Push na `main` | sim | sim | sim |
+
+Na `main`, o pipeline publica as imagens em `ghcr.io/<owner>/<repo>/{api,frontend}:<sha>` e **commita a nova tag** em `k8s/kustomization.yaml` (commit `deploy: ...` do bot, com `[skip ci]` para não disparar outro pipeline). Uma execução manual segue a mesma regra da branch escolhida.
+
+> Pushes que alteram **apenas** arquivos `.md`, a pasta `docs/` ou `.kiro/` **não disparam** o pipeline. Por isso, mergear na `main` um PR que só muda documentação não gera deploy nem commit do bot. Em Pull Request o pipeline roda de qualquer forma.
+
 
 #### Antes de começar
 
