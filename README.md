@@ -227,7 +227,7 @@ Dentro do cluster, os serviços só têm endereço interno. O `kubectl port-forw
 scripts/port-forward.sh
 ```
 
-O script abre de uma vez o app (http://localhost:3000), o Grafana (http://localhost:3001), o Prometheus (http://localhost:9090) e, se o ArgoCD estiver instalado (seção 4), a interface dele (https://localhost:8443). Deixe o terminal aberto: **Ctrl+C encerra todas as conexões**.
+O script abre de uma vez o app (http://localhost:3000), o Grafana (http://localhost:3001), o Prometheus (http://localhost:9090), a API (http://localhost:8080, com a documentação em `/docs`) e, se o ArgoCD estiver instalado (seção 4), a interface dele (https://localhost:8443). Deixe o terminal aberto: **Ctrl+C encerra todas as conexões**.
 
 **Alternativa: um comando por terminal.**
 
@@ -235,6 +235,7 @@ O script abre de uma vez o app (http://localhost:3000), o Grafana (http://localh
 kubectl -n encurtador port-forward svc/frontend 3000:80      # app em http://localhost:3000
 kubectl -n encurtador port-forward svc/grafana 3001:3000     # Grafana em http://localhost:3001
 kubectl -n encurtador port-forward svc/prometheus 9090:9090  # Prometheus (confirme o nome e a porta com `kubectl -n encurtador get svc`)
+kubectl -n encurtador port-forward svc/api 8080:8080         # API em http://localhost:8080 (documentação em /docs)
 ```
 
 - Cada comando **ocupa o terminal** e precisa continuar rodando. Ctrl+C derruba a ponte, mas o cluster continua de pé.
