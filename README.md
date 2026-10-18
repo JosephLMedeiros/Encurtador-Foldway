@@ -476,7 +476,7 @@ Este projeto foi feito para demo e hackathon. Antes de usá-lo fora desse contex
 - **Senhas de exemplo.** As credenciais (`troque-esta-senha`) estão versionadas em `docker-compose.yml`, `k8s/database/secret.yaml` e `k8s/observability/grafana.yaml`. Os próprios arquivos explicam como usar um Secret real fora do Git.
 - **O Grafana abre como visitante, sem login.** Qualquer pessoa que alcance a porta 3001 vê os dashboards. O login de administrador só é necessário para abrir traces e editar painéis.
 - **As portas do Compose ficam abertas para a rede.** O Compose publica 3000, 3001, 8080 e 9090 em todas as interfaces (`0.0.0.0`), então outras máquinas da mesma rede conseguem acessá-las. Em Wi-Fi compartilhado, prefixe o lado esquerdo do `ports` com `127.0.0.1:` (ex.: `"127.0.0.1:9090:9090"`) para limitar ao seu computador.
-- **API e Prometheus sem autenticação.** `/docs`, `/metrics` (na API) e o Prometheus não pedem login.
+- **API e Prometheus sem autenticação.** `/docs`, `/metrics` (na API) e o Prometheus não pedem login. O `/metrics` **não** é repassado pelo frontend (porta 3000), que devolve a página do app para esse caminho.
 - **O banco não é exposto.** O Postgres só é acessível dentro da rede do Compose, sem porta publicada no host.
 - **Avisos do `npm audit`.** As vulnerabilidades reportadas estão só nas ferramentas de desenvolvimento (Stylelint); `npm audit --omit=dev` retorna zero e nada disso vai para a imagem de produção.
 
