@@ -48,6 +48,7 @@ Funciona em Windows, macOS e Linux. Só é preciso ter instalado:
 - **Git**
 - **Docker** com o Compose v2: [Docker Desktop](https://www.docker.com/products/docker-desktop/) no Windows/macOS, ou Docker Engine + plugin `docker compose` no Linux. Deixe o Docker aberto e rodando.
 - Cerca de **4 GB de RAM livres** e as portas **3000, 3001, 8080 e 9090** livres.
+- **Opcional, só para rodar no Kubernetes local (seção 3):** **kind** e **kubectl**. O passo a passo de instalação está na própria seção 3.
 
 Não é preciso instalar Node, Python nem Postgres: tudo roda em containers.
 
@@ -96,18 +97,35 @@ npm run dev        # http://localhost:5173
 npm test           # testes do frontend; também há npm run lint e npm run lint:css
 ```
 
-Testes da API (precisa de Python 3.12):
+
+Testes da API. O jeito mais simples não exige instalar Python nem Postgres, só o Docker (igual em Linux, macOS e Windows). Rode da **raiz do projeto**:
+
+```bash
+docker compose --profile test run --rm api-test
+docker compose --profile test down      # remove o banco de teste ao terminar
+```
+
+O comando sobe um Postgres descartável (`test-db`), espera ele ficar pronto, roda o pytest com Python 3.12 e apaga o container dos testes. A aplicação não precisa estar rodando, e os outros serviços não sobem. Os serviços de teste ficam no profile `test`, então o `docker compose up` normal os ignora.
+
+> **Atenção:** use `run api-test`, e não `docker compose --profile test up`, que sobe a aplicação inteira junto com os testes.
+
+São 44 testes, entre unitários e de integração com Postgres real. Eles cobrem a criação, os conflitos (409), as validações (400), a paginação, o redirect (302, 404 e 410), a contagem de cliques, o ranking, o banco fora do ar (503) e o **contrato de telemetria** (nomes das métricas, `http_route` como template e o span do banco como filho do span HTTP).
+
+<details>
+<summary>Alternativa sem Docker (Python local)</summary>
+
+Precisa de **Python 3.12** (confira com `python3 --version`; versões diferentes podem se comportar de outro jeito) e de um Postgres de teste:
 
 ```bash
 docker run -d --name kiro-test-db -e POSTGRES_USER=kiro -e POSTGRES_PASSWORD=kiro \
   -e POSTGRES_DB=kiro_test -p 5433:5432 postgres:16-alpine
 cd api
-python -m venv .venv && . .venv/bin/activate     # Windows: .venv\Scripts\activate
+python3 -m venv .venv && . .venv/bin/activate     # Windows: .venv\Scripts\activate
 pip install -r requirements-dev.txt
 pytest                                            # usa TEST_DATABASE_URL (padrão: localhost:5433)
+docker rm -f kiro-test-db                         # remove o banco de teste ao terminar
 ```
-
-São 44 testes, entre unitários e de integração com Postgres real. Eles cobrem a criação, os conflitos (409), as validações (400), a paginação, o redirect (302, 404 e 410), a contagem de cliques, o ranking, o banco fora do ar (503) e o **contrato de telemetria** (nomes das métricas, `http_route` como template e o span do banco como filho do span HTTP).
+</details>
 
 ### 3. Kubernetes local com kind (plano B da demo)
 
@@ -116,6 +134,107 @@ scripts/kind-up.sh
 kubectl -n encurtador port-forward svc/frontend 3000:80
 kubectl -n encurtador port-forward svc/grafana 3001:3000
 ```
+
+### 3. Kubernetes local com kind (plano B da demo)
+
+O **kind** (Kubernetes IN Docker) cria um cluster Kubernetes dentro de containers Docker. Ele sobe a mesma aplicação do Docker Compose, mas operada como num cluster de verdade: 2 réplicas da API e do frontend, StatefulSet para o Postgres, probes de saúde etc.
+
+> O Compose e o kind são **ambientes independentes** e disputam as portas 3000 e 3001 e a memória. **Pare o Compose antes** (`docker compose down`).
+
+#### Passo 1: instalar o kind e o kubectl (uma única vez)
+
+O **kind** cria o cluster e o **kubectl** é a ferramenta para conversar com ele. O Docker precisa estar instalado e aberto (veja os pré-requisitos).
+
+**Linux (x86_64):**
+
+```bash
+# kind
+curl -Lo ./kind https://kind.sigs.k8s.io/dl/latest/kind-linux-amd64
+chmod +x ./kind
+sudo mv ./kind /usr/local/bin/kind
+
+# kubectl
+curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+chmod +x kubectl
+sudo mv kubectl /usr/local/bin/kubectl
+```
+
+Em máquinas ARM (por exemplo, uma VM em Mac com chip Apple), troque `amd64` por `arm64`. Para saber a sua arquitetura, rode `uname -m` (`x86_64` = amd64, `aarch64` = arm64).
+
+**macOS (Homebrew):**
+
+```bash
+brew install kind kubectl
+```
+
+**Windows (PowerShell):**
+
+```powershell
+winget install Kubernetes.kind
+winget install Kubernetes.kubectl
+```
+
+Feche e abra o terminal depois de instalar. No Windows, os scripts `.sh` do projeto precisam de um terminal bash: use o **WSL** ou o **Git Bash**.
+
+Confirme que as duas ferramentas foram instaladas:
+
+```bash
+kind version
+kubectl version --client
+```
+
+> As instruções de Linux são as que foram usadas nos testes. As de macOS e Windows seguem a documentação oficial do [kind](https://kind.sigs.k8s.io/docs/user/quick-start/#installation) e do [kubectl](https://kubernetes.io/docs/tasks/tools/), e podem variar com a versão do gerenciador de pacotes.
+
+#### Passo 2: subir o cluster
+
+Da **raiz do projeto**:
+
+```bash
+scripts/kind-up.sh
+```
+
+O script cria o cluster `kiro`, builda as imagens da API e do frontend localmente, carrega-as no cluster e aplica os manifests de `k8s/`. A primeira vez demora alguns minutos. Se aparecer `Permission denied`, o clone é antigo e o script está sem permissão de execução: rode `chmod +x scripts/*.sh` ou `bash scripts/kind-up.sh`.
+
+Quando terminar, confira se todos os pods estão `Running` e `READY` (ex.: `1/1`):
+
+```bash
+kubectl -n encurtador get pods
+```
+
+#### Passo 3: abrir o app e o Grafana
+
+Dentro do cluster, os serviços só têm endereço interno. O `kubectl port-forward` faz a ponte para o seu computador:
+
+```bash
+kubectl -n encurtador port-forward svc/frontend 3000:80      # app em http://localhost:3000
+kubectl -n encurtador port-forward svc/grafana 3001:3000     # Grafana em http://localhost:3001
+```
+
+- **Sem o `port-forward`, o site e o Grafana não abrem**, mesmo com tudo rodando no cluster.
+- Cada comando **ocupa o terminal** e precisa continuar rodando: use **um terminal por serviço**. Ctrl+C derruba a ponte, mas o cluster continua de pé.
+- Se o site parar de responder depois de um deploy, o pod por trás da conexão pode ter sido trocado: rode o comando de novo.
+- Para o Prometheus, use um terceiro terminal: `kubectl -n encurtador port-forward svc/prometheus 9090:9090` (confirme o nome e a porta com `kubectl -n encurtador get svc`).
+
+No Grafana, o painel "Pods da API no ar" deve mostrar **2**, e no Prometheus o `up{app="api"}` terá uma série por pod.
+
+#### Para apagar o cluster
+
+```bash
+kind delete cluster --name kiro
+kind get clusters                 # não deve mais listar "kiro"
+```
+
+Isso remove o cluster inteiro, incluindo o Postgres e o ArgoCD instalados nele. Encerre antes os `port-forward` (Ctrl+C).
+
+#### Se algo der errado
+
+| Sintoma | Causa provável | O que fazer |
+|---|---|---|
+| `kind: command not found` ou `kubectl: command not found` | Ferramenta não instalada | Faça o passo 1 |
+| `Permission denied` ao rodar o script | Clone antigo, sem permissão de execução | `chmod +x scripts/*.sh` |
+| Pod em `Pending` ou `CrashLoopBackOff` | Falta de memória, ou o cluster ainda está subindo | Libere memória (`docker compose down`) e acompanhe com `kubectl -n encurtador get pods -w` |
+| `port is already allocated` ou `address already in use` | O Compose ou outro `port-forward` está usando a porta | `docker compose down` e feche os `port-forward` antigos |
+| Site e Grafana não abrem | `port-forward` não está rodando | Rode os comandos do passo 3 |
 
 ### 4. Cluster com GitOps (ArgoCD)
 

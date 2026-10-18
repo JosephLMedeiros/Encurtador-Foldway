@@ -98,6 +98,30 @@ services:
     ports:
       - "3001:3000"
     depends_on: [prometheus, tempo]
+  test-db:
+    image: postgres:16-alpine
+    profiles: [test]
+    environment:
+      POSTGRES_USER: kiro
+      POSTGRES_PASSWORD: kiro
+      POSTGRES_DB: kiro_test
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kiro -d kiro_test"]
+      interval: 2s
+      retries: 15
+
+  api-test:
+    image: python:3.12
+    profiles: [test]
+    working_dir: /app
+    volumes:
+      - ./api:/app
+    environment:
+      TEST_DATABASE_URL: postgresql://kiro:kiro@test-db:5432/kiro_test
+    depends_on:
+      test-db:
+        condition: service_healthy
+    command: sh -c "pip install -r requirements-dev.txt && pytest"
 
 volumes:
   pgdata:
