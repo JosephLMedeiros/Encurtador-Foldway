@@ -6,7 +6,7 @@ metadata:
     app: frontend
     app.kubernetes.io/component: frontend
 spec:
-  replicas: 2
+  # replicas é gerenciado pelo HPA (k8s/frontend/hpa.yaml). Não defina aqui.
   selector:
     matchLabels:
       app: frontend

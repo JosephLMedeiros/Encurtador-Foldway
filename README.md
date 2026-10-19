@@ -94,13 +94,6 @@ curl -i localhost:3000/r/meu-portal          # 302 -> destino, conta o clique
 scripts/gerar-trafego.sh http://localhost:3000 120
 ```
 
-```bash
-curl -X POST localhost:3000/api/links -H 'content-type: application/json' \
-  -d '{"original_url":"https://example.com","custom_code":"meu-portal"}'
-curl -i localhost:3000/r/meu-portal          # 302 -> destino, conta o clique
-scripts/gerar-trafego.sh http://localhost:3000 120
-```
-
 ### 2. Desenvolvimento e testes
 
 Frontend com recarga automática (precisa de Node.js 22); a API continua no Docker:
@@ -143,13 +136,6 @@ docker rm -f kiro-test-db                         # remove o banco de teste ao t
 ```
 </details>
 
-### 3. Kubernetes local com kind (plano B da demo)
-
-```bash
-scripts/kind-up.sh
-kubectl -n encurtador port-forward svc/frontend 3000:80
-kubectl -n encurtador port-forward svc/grafana 3001:3000
-```
 
 ### 3. Kubernetes local com kind (plano B da demo)
 

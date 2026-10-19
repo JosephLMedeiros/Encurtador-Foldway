@@ -6,7 +6,7 @@ metadata:
     app: api
     app.kubernetes.io/component: api
 spec:
-  replicas: 2
+  # replicas é gerenciado pelo HPA (k8s/api/hpa.yaml). Não defina aqui.
   selector:
     matchLabels:
       app: api

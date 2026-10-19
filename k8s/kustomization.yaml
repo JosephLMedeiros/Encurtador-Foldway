@@ -16,8 +16,10 @@ resources:
   - api/configmap.yaml
   - api/deployment.yaml
   - api/service.yaml
+  - api/hpa.yaml
   - frontend/deployment.yaml
   - frontend/service.yaml
+  - frontend/hpa.yaml
   # Observabilidade (D-09): OTel Collector -> Tempo (traces); Prometheus (métricas); Grafana
   - observability/otel-collector.yaml
   - observability/tempo.yaml
