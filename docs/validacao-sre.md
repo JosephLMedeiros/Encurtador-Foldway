@@ -8,15 +8,15 @@
 
 ## 1. Resumo
 
-O portal foi validado seguindo o README do zero, no Docker Compose e num cluster Kubernetes local (kind) com ArgoCD. A stack de observabilidade se mostrou correta de ponta a ponta: métricas, dashboard, traces atravessando navegador, frontend, API e banco, e detecção das falhas provocadas.
+Seguimos o README do zero no Docker Compose e num cluster Kubernetes local (kind) com ArgoCD. A observabilidade funcionou de ponta a ponta: métricas, dashboard, traces atravessando navegador, frontend, API e banco, e as falhas que provocamos apareceram onde deviam.
 
-Dos sete testes de comportamento no cluster, **seis passaram integralmente** e **um passou com ressalva**: durante o rollout da API houve 1 erro `504` em 300 requisições. Esse resultado está registrado como limitação conhecida (seção 5).
+Dos sete testes de comportamento no cluster, **seis passaram** e **um passou com ressalva**: durante o rollout da API houve 1 erro `504` em 300 requisições. Isso ficou registrado como limitação conhecida (seção 5).
 
-A validação também encontrou **15 pontos de melhoria**, quase todos de documentação e portabilidade. Eles foram corrigidos ou documentados e estão listados na seção 4. As correções de README e do dashboard estão na branch `develop`; a etapa final é o merge na `main`.
+Também encontramos **15 pontos de melhoria**, quase todos de documentação e portabilidade. Cada um foi corrigido ou documentado (seção 4). As correções do README e do dashboard estão na `develop` e entram na `main` no próximo merge.
 
 ## 2. Escopo e método
 
-A validação tratou cada afirmação do README como uma hipótese a ser comprovada: executou-se o comando, comparou-se o resultado com o esperado e registrou-se a diferença.
+Tratamos cada afirmação do README como algo a provar: rodamos o comando, comparamos com o esperado e anotamos a diferença.
 
 **Ambiente**
 
@@ -30,7 +30,7 @@ A validação tratou cada afirmação do README como uma hipótese a ser comprov
 | Banco | PostgreSQL 16 |
 | CI | GitHub Actions (`ci-cd.yaml`), Python 3.12 e Node 22 |
 
-**Execução.** Os testes foram executados manualmente. Um assistente de IA (Claude) apoiou o planejamento do roteiro, a análise das saídas e a redação deste documento. A execução dos comandos e as decisões sobre cada achado foram humanas.
+**Execução.** Os testes foram rodados à mão. Um assistente de IA (Claude) ajudou a montar o roteiro, a ler as saídas e a escrever este documento. Quem rodou os comandos e decidiu o que fazer com cada achado foi a equipe.
 
 ## 3. Resultados
 
@@ -100,7 +100,7 @@ A validação tratou cada afirmação do README como uma hipótese a ser comprov
 
 ## 5. Limitações conhecidas e riscos aceitos
 
-- **Rollout da API.** O `504` é o código que o nginx devolve quando a API não responde, o que sugere uma requisição atendida por um pod em encerramento. Essa causa é uma inferência: a estratégia de rollout e o log do nginx não foram analisados. Também não foi verificado se o painel de erros 5xx, que mede a API, registra erros gerados pelo nginx. Por isso, "sem downtime" deve ser lido como "sem downtime perceptível": nos testes, 0,3% das requisições falharam durante a troca dos pods.
+- **Rollout da API.** O `504` é o que o nginx devolve quando a API não responde, o que sugere uma requisição caindo num pod em encerramento. É uma suspeita: não analisamos a estratégia de rollout nem o log do nginx. Também não conferimos se o painel de erros 5xx, que mede a API, pega erros gerados pelo nginx. Então "sem downtime" deve ser lido como "sem downtime perceptível": nos testes, 0,3% das requisições falharam durante a troca dos pods.
 - **Ambiente de demo.** Senhas de exemplo, Grafana sem login para visitantes, portas do Compose abertas para a rede e API e Prometheus sem autenticação são escolhas de demonstração, documentadas no README. Não devem ser levadas à produção.
 - **Dependências de desenvolvimento.** As vulnerabilidades do Stylelint não chegam às imagens de produção.
 - **Plataformas.** A validação foi feita em Linux (Ubuntu). macOS e Windows não foram testados. Como a aplicação roda em containers e em Kubernetes, o risco é baixo; as exceções são os scripts `.sh`, que exigem bash (no Windows, WSL ou Git Bash), e os comandos de instalação do kind e do kubectl para esses sistemas, que seguem a documentação oficial e não foram executados.

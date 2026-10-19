@@ -1,334 +1,152 @@
-Status: Reconciliado com a implementação em 18/10/2026 (escrito após a implementação)
+Status: Aprovado em 2026-10-18 por Diêgo
 
-# Design — 02-devops-gitops
-
-Este documento descreve a implementação real de CI/CD, Kubernetes e GitOps, conforme encontrada no repositório. Toda afirmação cita o arquivo que a comprova. O plano original está preservado na seção final.
-
----
+# Design — DevOps e GitOps
 
 ## 1. Visão geral
 
-A entrega do Foldway usa um mono-repo GitOps: o mesmo repositório contém código e manifests. O GitHub Actions testa, builda e publica imagens; o ArgoCD observa `k8s/` e reconcilia o cluster.
+Usamos um monorepo: código, manifests e pipeline no mesmo repositório. O GitHub Actions testa e publica as imagens; o ArgoCD observa `k8s/` na `main` e deixa o cluster igual ao Git.
 
 ```
-Push na main
-    │
-    ▼
+merge na main
+   │
+   ▼
 GitHub Actions (.github/workflows/ci-cd.yaml)
-    ├── test-api      → pytest + Postgres service
-    ├── test-frontend → lint + testes + build Vite
-    ├── validate      → kubeconform + docker compose config
-    ├── build         → docker build + push GHCR (só na main)
-    │                   tags: <sha7> e latest
-    └── deploy        → yq edita images[].newTag em k8s/kustomization.yaml
-                        git commit "deploy: ... [skip ci]"
-                        git push (retry × 3 com rebase)
-                            │
-                            ▼
-                        ArgoCD (argocd/application.yaml)
-                        observa k8s/, branch main
-                        sync automático: prune + selfHeal
-                            │
-                            ▼
-                        Cluster Kubernetes (kind local)
-                        namespace: encurtador
+   test-api ─────┐
+   test-frontend ├─► build (api, frontend) ─► deploy
+   validate ─────┘    push no GHCR             yq grava newTag em k8s/kustomization.yaml
+                      tags <sha7> e latest     commit "deploy: ... [skip ci]"
+                                                   │
+                                                   ▼
+                                    ArgoCD (Application kiro-portal)
+                                    observa k8s/ na main, prune + selfHeal
+                                                   │
+                                                   ▼
+                                    cluster, namespace encurtador
 ```
 
----
+## 2. Pipeline (`.github/workflows/ci-cd.yaml`)
 
-## 2. Pipeline CI/CD (`.github/workflows/ci-cd.yaml`)
+Começamos com dois workflows, um por componente, cada um commitando sua tag. Eles faziam push ao mesmo tempo e brigavam no Git, então juntamos tudo num pipeline só.
 
-### 2.1 Gatilhos
+### Gatilhos
 
-| Evento | Comportamento |
+| Evento | O que roda |
 |---|---|
-| `push` em `main` ou `develop` | Roda todos os jobs; push de imagens e deploy somente na `main` |
-| `pull_request` | Roda testes, validação e build (sem push); deploy pulado |
-| `workflow_dispatch` | Manual; segue a mesma regra da branch escolhida |
-| `paths-ignore` (apenas push) | `**.md`, `docs/**`, `.kiro/**` não disparam o pipeline |
+| Pull request | Testes, validação e build, sem publicar |
+| Push na `develop` | Igual ao PR |
+| Push na `main` | Tudo, incluindo publicar as imagens e o commit da tag |
+| `workflow_dispatch` | Segue a regra da branch escolhida |
 
-O `concurrency` usa `cancel-in-progress: true` em PRs (evita builds simultâneos na mesma branch).
+No push, `paths-ignore` deixa de fora `**.md`, `docs/**` e `.kiro/**`. Não filtramos por componente: qualquer mudança de código roda o pipeline dos dois. Para o tamanho do projeto isso é mais simples e o tempo extra é pequeno.
 
-Fonte: `.github/workflows/ci-cd.yaml`.
+O `concurrency` agrupa por branch e cancela execuções antigas só em PR. Na `main` cada execução vai até o fim, para nenhum deploy ficar pela metade.
 
-### 2.2 Estrutura de jobs e dependências
+### Jobs
 
-```
-test-api ──┐
-            ├──► validate ──► build ──► deploy
-test-frontend ──┘
-```
+- **test-api:** Ubuntu 24.04, Python 3.12 (a mesma da imagem), Postgres 16 como service e `python -m pytest -v`.
+- **test-frontend:** Node 22 (o mesmo da imagem), `npm ci`, `npm run lint`, `npm run lint:css`, `npm test` e `npm run build`.
+- **validate:** `kubectl kustomize k8s` e kubeconform `-strict` no resultado; kubeconform na Application do ArgoCD usando o catálogo de CRDs; `docker compose config -q`.
+- **build:** matriz `[api, frontend]`, depende dos três anteriores. O nome da imagem é `ghcr.io/${GITHUB_REPOSITORY,,}/<componente>`, em minúsculas porque o GHCR exige (o dono do repositório tem maiúsculas). Só faz login e push quando o evento não é PR e a branch é `main`. Usa cache do Actions por componente e grava os labels OCI `source` e `revision`.
+- **deploy:** só na `main`. Usa o `yq` que já vem no runner para atualizar `newName` e `newTag` das duas imagens em `k8s/kustomization.yaml`, commita como `github-actions[bot]` com a mensagem `deploy: api e frontend em <sha7> [skip ci]` e faz push com até 3 tentativas, com `git pull --rebase` entre elas.
 
-`build` tem `needs: [test-api, test-frontend, validate]`. `deploy` tem `needs: build` e só roda quando `github.ref == 'refs/heads/main'` e o evento não é `pull_request`.
+As permissões são as mínimas: `contents: read` no geral, `packages: write` no build e `contents: write` no deploy.
 
-### 2.3 Job `test-api`
+## 3. Manifests
 
-- Runner: `ubuntu-24.04`, Python 3.12.
-- Serviço: `postgres:16-alpine` (usuário `kiro`, banco `kiro_test`), com healthcheck `pg_isready`.
-- Instala `requirements-dev.txt` com cache pip.
-- Executa `python -m pytest -v` com `TEST_DATABASE_URL=postgresql://kiro:kiro@localhost:5432/kiro_test`.
-- Working directory: `api/`.
+### Ponto de entrada
 
-Fonte: `.github/workflows/ci-cd.yaml`.
+`k8s/kustomization.yaml` aplica `namespace: encurtador` e o label `app.kubernetes.io/part-of: kiro-portal` em tudo, lista os recursos e gera os ConfigMaps da observabilidade a partir dos arquivos em `k8s/observability/config/` e do JSON do dashboard. O sufixo de hash desses ConfigMaps faz o pod reiniciar quando a config muda no Git.
 
-### 2.4 Job `test-frontend`
-
-- Runner: `ubuntu-24.04`, Node.js 22 com cache npm.
-- Executa (em sequência): `npm ci --no-audit --no-fund`, `npm run lint`, `npm run lint:css`, `npm test`, `npm run build`.
-- Working directory: `frontend/`.
-
-Fonte: `.github/workflows/ci-cd.yaml`.
-
-### 2.5 Job `validate`
-
-- `kubectl kustomize k8s > rendered.yaml` — renderiza o kustomize.
-- kubeconform `v0.6.7` com flag `-strict -summary`:
-  - `rendered.yaml` contra schemas padrão do Kubernetes.
-  - `argocd/application.yaml` contra schemas padrão + CRDs do ArgoCD (catálogo `datreeio/CRDs-catalog`).
-- `docker compose config -q` — valida a sintaxe do `docker-compose.yml`.
-
-Fonte: `.github/workflows/ci-cd.yaml`.
-
-### 2.6 Job `build`
-
-- Estratégia: matriz `[api, frontend]`, dois jobs em paralelo.
-- Permission: `packages: write` (necessário para push ao GHCR).
-- Nome da imagem: `ghcr.io/${GITHUB_REPOSITORY,,}/<component>` (GHCR exige minúsculas).
-- Tag: `${GITHUB_SHA::7}` (SHA de 7 dígitos).
-- Push: somente se `github.event_name != 'pull_request' && github.ref == 'refs/heads/main'` (variável `PUSH`).
-- Tags publicadas: `<sha7>` **e** `latest`.
-- Labels OCI: `source` (URL do repo) e `revision` (SHA completo).
-- Cache Docker: `type=gha,scope=<component>` (GitHub Actions cache por componente).
-
-Fonte: `.github/workflows/ci-cd.yaml`.
-
-### 2.7 Job `deploy`
-
-- Executa somente na `main` (não em PR).
-- Usa `yq` (pré-instalado no runner) para atualizar `images[].newName` e `images[].newTag` em `k8s/kustomization.yaml` para **ambos** os componentes (`api` e `frontend`).
-- Commit: `"deploy: api e frontend em <sha7> [skip ci]"` com bot `github-actions[bot]`.
-- Push com retry: até 3 tentativas, cada falha faz `git pull --rebase origin main` antes de tentar novamente.
-- Permission: `contents: write`.
-
-Fonte: `.github/workflows/ci-cd.yaml`.
-
----
-
-## 3. Manifests Kubernetes
-
-### 3.1 Ponto de entrada: `k8s/kustomization.yaml`
-
-Kustomize aplica `namespace: encurtador` a todos os recursos e etiqueta tudo com `app.kubernetes.io/part-of: kiro-portal`. Os ConfigMaps de observabilidade são gerados por `configMapGenerator` com sufixo de hash (o pod reinicia automaticamente quando a config muda no Git).
-
-O bloco `images` é atualizado pelo CI:
+O bloco `images` é a única coisa que o CI edita:
 
 ```yaml
 images:
   - name: ghcr.io/josephlmedeiros/rascunho-encurtador/api
+    newName: ghcr.io/josephlmedeiros/rascunho-encurtador/api
     newTag: <sha7>
   - name: ghcr.io/josephlmedeiros/rascunho-encurtador/frontend
+    newName: ghcr.io/josephlmedeiros/rascunho-encurtador/frontend
     newTag: <sha7>
 ```
 
-Fonte: `k8s/kustomization.yaml`.
+### API
 
-### 3.2 Namespace
+- Deployment com 2 réplicas, `envFrom` do ConfigMap `api-config` e `DB_USER`/`DB_PASSWORD` do Secret `db-credentials`.
+- `startupProbe` em `/healthz` a cada 2s, até 60 falhas (120s de orçamento). O valor anterior, 80s, matava a API no primeiro boot do Postgres no kind.
+- `livenessProbe` em `/healthz` a cada 10s e `readinessProbe` em `/readyz` a cada 5s.
+- Roda sem root (UID 10001), com sistema de arquivos só leitura, sem escalada de privilégio, sem capabilities e com seccomp `RuntimeDefault`. Um `emptyDir` em `/tmp` cobre o que precisa de escrita.
+- Requests de 100m/128Mi e limits de 500m/256Mi.
+- Anotações `prometheus.io/scrape`, `port` e `path` para o Prometheus achar cada pod.
+- Service `ClusterIP` na porta 8080.
 
-`k8s/base/namespace.yaml`: namespace `encurtador` com labels `app.kubernetes.io/managed-by: argocd` e `project: encurtador-hackathon`.
+### Frontend
 
-### 3.3 API
+- Deployment com 2 réplicas, imagem própria baseada em `nginx:1.27-alpine-otel`, escutando na 8080.
+- Liveness e readiness em `/healthz`, que o nginx responde sem chamar a API. Assim o frontend não cai junto quando a API está fora.
+- Service `ClusterIP` na porta 80, apontando para a 8080 do container.
 
-**Deployment** (`k8s/api/deployment.yaml`):
-- 2 réplicas.
-- `envFrom: configMapRef: api-config` (variáveis não sensíveis, incluindo `OTEL_*`).
-- `env` com `DB_USER` e `DB_PASSWORD` de `secretKeyRef: db-credentials`.
-- **Probes:**
-  - `startupProbe`: `/healthz`, 2s × 60 tentativas (orçamento 120s para o banco subir).
-  - `livenessProbe`: `/healthz`, período 10s.
-  - `readinessProbe`: `/readyz`, período 5s.
-- Segurança: `runAsNonRoot: true`, `runAsUser: 10001`, `readOnlyRootFilesystem: true`, `allowPrivilegeEscalation: false`, `capabilities: drop: ALL`, `seccompProfile: RuntimeDefault`.
-- Volume `tmp` em `emptyDir` (necessário por `readOnlyRootFilesystem`).
-- Anotações de scrape: `prometheus.io/scrape: "true"`, `prometheus.io/port: "8080"`, `prometheus.io/path: "/metrics"`.
+O nginx do frontend faz proxy de `/api` e `/r` para o Service `api`. Por isso o navegador fala com uma origem só e não precisa de CORS.
 
-**Service** (`k8s/api/service.yaml`): ClusterIP, porta 8080.
+### Banco
 
-**ConfigMap** (`k8s/api/configmap.yaml`): `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_POOL_MAX`, `BASE_URL`, `SHORT_CODE_LENGTH`, variáveis `OTEL_*`.
+- StatefulSet com `postgres:16-alpine`. O nome do banco vem do `api-config` e as credenciais do `db-credentials`.
+- `PGDATA` num subdiretório do volume, para não conflitar com o `lost+found`.
+- Liveness e readiness com `pg_isready`.
+- PVC `db-data` de 1Gi.
+- Service `ClusterIP` na 5432, só dentro do cluster.
 
-Fonte: `k8s/api/deployment.yaml`, `k8s/api/service.yaml`, `k8s/api/configmap.yaml`.
+### Secret de exemplo
 
-### 3.4 Frontend
+`k8s/database/secret.yaml` vai para o Git com `troque-esta-senha`. Fizemos assim para o ArgoCD conseguir subir o ambiente da demo sem passo manual. O arquivo explica como criar o Secret real com `kubectl create secret` fora do repositório. O mesmo vale para o Secret `grafana-admin`.
 
-**Deployment** (`k8s/frontend/deployment.yaml`):
-- 2 réplicas.
-- Imagem `nginx:1.27-alpine-otel` (módulo OTel do nginx).
-- `livenessProbe` e `readinessProbe` em `/healthz` (rota do nginx, sem consultar a API).
-- Sem `envFrom` (nginx não lê variáveis de ambiente da aplicação).
-- `securityContext: allowPrivilegeEscalation: false`.
+### Ingress
 
-**Service** (`k8s/frontend/service.yaml`): ClusterIP, porta 80.
+`k8s/base/ingress.yaml` manda todo o tráfego para o Service `frontend`, sem regras para `/api`, porque o nginx já faz esse papel. Ele está comentado no kustomization até o cluster ter um Ingress Controller. A primeira versão tinha um `rewrite-target: /` que quebrava as rotas `/api`, e isso foi tirado.
 
-Fonte: `k8s/frontend/deployment.yaml`, `k8s/frontend/service.yaml`.
+## 4. ArgoCD
 
-### 3.5 Banco de dados
+### Application (`argocd/application.yaml`)
 
-**StatefulSet** (`k8s/database/statefulset.yaml`):
-- Imagem `postgres:16-alpine` (D-05).
-- `POSTGRES_DB` lido do `api-config`; credenciais do Secret `db-credentials`.
-- `PGDATA=/var/lib/postgresql/data/pgdata` (subdiretório evita conflito com `lost+found`).
-- `readinessProbe` e `livenessProbe` via `pg_isready`.
-- PVC `db-data` de 1Gi (ReadWriteOnce).
+- Nome `kiro-portal`, no namespace `argocd`.
+- Fonte: este repositório, `targetRevision: main`, `path: k8s`.
+- Destino: o próprio cluster, namespace `encurtador`.
+- `automated` com `prune: true` e `selfHeal: true`, `CreateNamespace=true` e retry de 5 tentativas com backoff de 10s até 3 min.
+- Finalizer `resources-finalizer.argocd.argoproj.io`: apagar a Application apaga os recursos.
 
-**Service** (`k8s/database/service.yaml`): ClusterIP, porta 5432 — banco nunca exposto fora do cluster.
+A Application fica fora de `k8s/` de propósito. Se ficasse dentro, o ArgoCD estaria gerenciando a si mesmo.
 
-**Secret** (`k8s/database/secret.yaml`): valores de exemplo (`troque-esta-senha`). Arquivo versionado para permitir deploy automático pelo ArgoCD; contém instruções para substituição por credencial real.
+### Instalação (`scripts/argocd-up.sh`)
 
-Fonte: `k8s/database/statefulset.yaml`, `k8s/database/service.yaml`, `k8s/database/secret.yaml`.
+- Instala o ArgoCD v3.5.5 (versão fixa) com `kubectl apply --server-side --force-conflicts`, porque os CRDs são grandes demais para o apply comum.
+- Espera `argocd-server` e `argocd-application-controller` ficarem prontos.
+- Aplica a Application e espera `Synced` e `Healthy` por até 5 minutos.
+- Mostra a senha inicial do `admin`.
 
-### 3.6 Ingress
+### Cuidado nos testes de resiliência
 
-`k8s/base/ingress.yaml` existe mas está **comentado** no `k8s/kustomization.yaml`. Aponta todo o tráfego para o Service `frontend` (o nginx do frontend faz proxy de `/api` e `/r` para a API — sem necessidade de regras separadas no Ingress). Host placeholder: `encurtador.local`.
-
-Fonte: `k8s/base/ingress.yaml`, `k8s/kustomization.yaml`.
-
-### 3.7 Observabilidade
-
-`k8s/observability/` gerenciado pelo mesmo kustomization. ConfigMaps gerados por `configMapGenerator` com hash. Inclui: OTel Collector, Tempo, Prometheus (com RBAC), Grafana (com Secret `grafana-admin`), configs em `k8s/observability/config/`, dashboard em `k8s/observability/dashboards/kiro-portal.json`.
-
-Fonte: `k8s/kustomization.yaml`, `k8s/observability/`.
-
----
-
-## 4. GitOps — ArgoCD
-
-### 4.1 Application (`argocd/application.yaml`)
-
-```yaml
-metadata:
-  name: kiro-portal
-  namespace: argocd
-spec:
-  source:
-    repoURL: https://github.com/JosephLMedeiros/rascunho-encurtador.git
-    targetRevision: main
-    path: k8s
-  destination:
-    server: https://kubernetes.default.svc
-    namespace: encurtador
-  syncPolicy:
-    automated:
-      prune: true       # remove do cluster o que saiu do Git
-      selfHeal: true    # desfaz alterações manuais no cluster
-    syncOptions:
-      - CreateNamespace=true
-    retry:
-      limit: 5
-      backoff: { duration: 10s, factor: 2, maxDuration: 3m }
-```
-
-Finalizer `resources-finalizer.argocd.argoproj.io`: apagar a Application remove os recursos do cluster.
-
-Fonte: `argocd/application.yaml`.
-
-### 4.2 Instalação — `scripts/argocd-up.sh`
-
-- Versão fixa: ArgoCD `v3.5.5`.
-- `kubectl apply --server-side --force-conflicts` (necessário por tamanho dos CRDs).
-- Aguarda rollout do `argocd-server` e do `argocd-application-controller` (timeout 300s cada).
-- Aplica `argocd/application.yaml` e aguarda `Synced/Healthy` (até 60 × 5s = 5 minutos).
-- Exibe a senha do `admin` ao final.
-
-Fonte: `scripts/argocd-up.sh`.
-
-### 4.3 Comportamento validado
-
-- **Deploy GitOps:** o CI faz commit da nova tag em `k8s/kustomization.yaml`; o ArgoCD detecta e sincroniza sem kubectl manual. Evidência: `docs/validacao-sre.md` (seção 3.2, teste 4).
-- **Self-heal:** escalar a API para 5 réplicas via kubectl reverte em segundos. Evidência: `docs/validacao-sre.md` (seção 3.2).
-- **Readiness sem reiniciar:** banco fora do ar → pods da API saem do balanceamento (readiness), `RESTARTS = 0`, voltam sozinhos. Evidência: `docs/validacao-sre.md` (seção 3.2, teste 1).
-- **Persistência:** dados sobrevivem à recriação do pod do Postgres (PVC). Evidência: `docs/validacao-sre.md` (seção 3.2, teste 2).
-- **Rollout com ressalva:** 299/300 requisições OK durante `rollout restart`; 1 × 504. Evidência: `docs/validacao-sre.md` (seção 3.2, teste 3 e seção 5).
-
----
+Com o `selfHeal` ligado, qualquer `kubectl scale` ou `rollout restart` é desfeito em segundos. Para testar falhas é preciso pausar o auto-sync antes e reaplicar a Application depois. O passo a passo está no apêndice do `docs/validacao-sre.md`.
 
 ## 5. Ambiente local
 
-### 5.1 Docker Compose (`docker-compose.yml`)
+- **Docker Compose:** banco, API, frontend, Collector, Tempo, Prometheus e Grafana. As configs da observabilidade são os mesmos arquivos de `k8s/observability/config/` (o Prometheus tem uma versão com alvo fixo, `prometheus.compose.yaml`). Portas: app 3000, Grafana 3001, Prometheus 9090 e API 8080.
+- **`scripts/kind-up.sh`:** cria o cluster `kiro` no kind, builda as imagens com a tag `local`, carrega no cluster, aplica o kustomize trocando `latest` por `local` e espera banco e API.
+- **`scripts/port-forward.sh`:** abre frontend (3000), Grafana (3001), Prometheus (9090), API (8080) e ArgoCD (8443) num terminal só.
+- **`scripts/gerar-trafego.sh`:** cria links e gera cliques por alguns segundos, para o dashboard ter o que mostrar.
 
-Serviços: `database`, `api`, `frontend`, `otel-collector`, `tempo`, `prometheus`, `grafana`. Profile `test` para testes com banco descartável. Senhas com valor padrão `troque-esta-senha`. Configs de observabilidade montadas dos mesmos arquivos de `k8s/observability/config/`.
+## 6. Verificação
 
-Acesso: app em `localhost:3000`, Grafana em `localhost:3001`, Prometheus em `localhost:9090`, API direta em `localhost:8080`.
+O que foi validado e como está no `docs/validacao-sre.md`. Em resumo:
 
-Fonte: `docker-compose.yml`.
+- pipeline: PR com testes e build verdes e deploy pulado; merge na `main` com os 6 jobs verdes e o bot commitando a nova tag;
+- ArgoCD: imagens em uso iguais ao `newTag` da `main`, aplicação `Synced` e `Healthy`;
+- self-heal: escalar a API para 5 réplicas volta para 2 em segundos;
+- banco fora do ar: pods da API em `0/1`, sem restart, e volta sozinho;
+- persistência: o link criado antes continua funcionando depois de recriar o pod do Postgres;
+- rollout: 299 de 300 requisições OK durante um `rollout restart`, com um 504.
 
-### 5.2 Kubernetes local — `scripts/kind-up.sh`
+## 7. Limitações conhecidas
 
-- Cluster `kiro` em kind.
-- Build das imagens localmente (tag `:local`).
-- `kind load docker-image` para carregar no cluster.
-- `kubectl kustomize k8s | sed s/latest/local/` + `kubectl apply`.
-- Aguarda rollout do StatefulSet do banco (180s) e do Deployment da API (240s).
-
-Fonte: `scripts/kind-up.sh`.
-
-### 5.3 Port-forward — `scripts/port-forward.sh`
-
-Abre em um único terminal: frontend (3000), Grafana (3001), Prometheus (9090), API (8080) e ArgoCD (8443). Fonte: `scripts/port-forward.sh`.
-
----
-
-## 6. Rastreabilidade dos requisitos
-
-| Requisito | Estado | Evidência |
-|---|---|---|
-| R-K8S-01 Deployments/StatefulSet por componente | Atendido | `k8s/api/deployment.yaml`, `k8s/frontend/deployment.yaml`, `k8s/database/statefulset.yaml` |
-| R-K8S-01 Pods Running | Atendido | `docs/validacao-sre.md` seção 3.2 teste 4 |
-| R-K8S-02 Service por componente | Atendido | `k8s/api/service.yaml`, `k8s/frontend/service.yaml`, `k8s/database/service.yaml` |
-| R-K8S-02 Exposição externa | Atendido com divergência | ClusterIP + port-forward; Ingress comentado |
-| R-K8S-03 ConfigMap de configuração | Atendido | `k8s/api/configmap.yaml` |
-| R-K8S-03 Secret de credenciais | Atendido com divergência | `k8s/database/secret.yaml` (exemplo versionado) |
-| R-K8S-04 Probes em todos os Deployments | Atendido | `k8s/api/deployment.yaml`, `k8s/frontend/deployment.yaml`, `k8s/database/statefulset.yaml` |
-| R-K8S-04 Probes em endpoints reais | Atendido | Validado: `docs/validacao-sre.md` testes 1 e 7 |
-| R-K8S-05 Namespace dedicado | Atendido | `k8s/base/namespace.yaml`, `k8s/kustomization.yaml` |
-| R-CI-01 Build/push da API | Atendido com divergência | `.github/workflows/ci-cd.yaml` (workflow único, não por componente) |
-| R-CI-02 Build/push do frontend | Atendido com divergência | Idem |
-| R-CI-03 Atualização de tag nos manifests | Atendido com divergência | CI atualiza `kustomization.yaml`, não Deployment individual; `docs/validacao-sre.md` seção 3.3 |
-| R-CI-04 Testes antes do build | Atendido | `needs: [test-api, test-frontend, validate]`; `docs/validacao-sre.md` seção 3.1 |
-| R-GITOPS-01 Application ArgoCD | Atendido | `argocd/application.yaml` |
-| R-GITOPS-01 Auto-sync | Atendido | `argocd/application.yaml` (automated.prune + selfHeal); `docs/validacao-sre.md` seção 3.2 |
-| R-GITOPS-02 Subdiretórios por componente | Atendido com extensão | `k8s/api/`, `k8s/frontend/`, `k8s/database/`, `k8s/base/`, `k8s/observability/` |
-| R-GITOPS-03 Deploy sem kubectl manual | Atendido | `docs/validacao-sre.md` seção 3.2 teste 4 |
-
----
-
-## 7. Lacunas
-
-### L-1 — Ingress sem Ingress Controller configurado (Q-01 pendente)
-
-**Procurado:** `k8s/base/ingress.yaml` habilitado em `k8s/kustomization.yaml`.
-
-**Encontrado:** `ingress.yaml` existe mas está comentado. Não há Ingress Controller configurado no cluster kind. A exposição externa é feita por `port-forward`. O host `encurtador.local` é um placeholder.
-
-### L-2 — Credenciais de exemplo versionadas (R-K8S-03)
-
-**Encontrado:** `k8s/database/secret.yaml` e `k8s/observability/grafana.yaml` contêm `troque-esta-senha` versionado no Git. Decisão de demo documentada em `docs/validacao-sre.md` (seção 5). Não é uma lacuna operacional para o ambiente do hackathon, mas não atende ao critério de "nenhuma credencial em texto claro nos manifests versionados" conforme enunciado.
-
-### L-3 — Rollout sem downtime total (R-K8S-01, ressalva)
-
-**Encontrado:** 1 erro `504` em 300 requisições durante `rollout restart deploy/api`. A causa exata (pod em encerramento atendendo requisição) não foi confirmada analiticamente. Documentado como limitação conhecida em `docs/validacao-sre.md` (seção 5).
-
-### L-4 — `paths-ignore` não cobre push na `develop` para paths específicos
-
-**Encontrado:** o `paths-ignore` do evento `push` ignora `**.md`, `docs/**` e `.kiro/**`. Alterações de código em qualquer componente disparam o pipeline para **ambos** os componentes em matriz. Não existe filtro por componente (ex.: só testar/buildar a API quando `api/` muda). Isso é uma simplificação aceita para o hackathon: o pipeline roda para os dois componentes mesmo que apenas um tenha mudado.
-
----
-
-## 8. Plano original (substituído)
-
-O design original previa:
-
-- Três arquivos de workflow separados: `ci-api.yaml`, `ci-frontend.yaml`, `update-manifests.yaml`. **Substituído por:** workflow único `ci-cd.yaml` com jobs em matriz.
-- YAML raw sem Kustomize. **Substituído por:** Kustomize com `configMapGenerator` e bloco `images`.
-- `k8s/base/argocd-app.yaml`. **Substituído por:** `argocd/application.yaml` em diretório próprio.
-- Atualização da tag diretamente no campo `image` do Deployment. **Substituído por:** atualização de `images[].newTag` em `k8s/kustomization.yaml`.
-- Secrets configurados com `kubectl create secret` manual ou via GitHub Secrets. **Substituído por:** exemplos versionados com instruções de substituição (decisão de demo).
-- Probes em `/health`. **Substituído por:** `/healthz` (liveness) e `/readyz` (readiness).
-- GitHub Secrets `REGISTRY_TOKEN`, `REGISTRY_USER`, `K8S_DB_PASSWORD`, `K8S_DB_USER`. **Substituído por:** `GITHUB_TOKEN` nativo para GHCR (sem secrets adicionais para o registry).
+- Exposição só por `port-forward`; o Ingress não foi testado com um controller.
+- Senhas de exemplo no Git, aceitas para a demo.
+- Um 504 durante o rollout da API. A suspeita é uma requisição caindo num pod em encerramento, mas não confirmamos. Um `preStop` com uma pequena espera e `maxUnavailable: 0` devem resolver.
+- Tudo foi validado em Linux. macOS e Windows não foram testados.

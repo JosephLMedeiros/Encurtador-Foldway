@@ -1,132 +1,113 @@
-# Registro de Uso do Kiro
+# Registro de uso do Kiro e de IA
 
-## Para que serve este documento
+## Para que serve
 
-Este é o diário de bordo do uso de IA no projeto. Ele serve a três propósitos:
+Este é o diário de bordo do uso de IA no projeto. Ele tem três funções:
 
-1. **Rastreabilidade:** mostrar como cada requisito, design e tarefa nasceu, o que o Kiro propôs e o que o grupo decidiu.
-2. **Avaliação:** o enunciado avalia *como* o Kiro foi usado (código, manifests, pipeline, dashboards) e pede prompts e decisões documentados. Este arquivo é a evidência.
-3. **Pitch:** a parte "por baixo do capô" da apresentação será montada a partir daqui.
+1. **Rastreabilidade:** mostrar de onde veio cada requisito, design e tarefa, o que a ferramenta propôs e o que o grupo decidiu.
+2. **Avaliação:** o enunciado avalia como o Kiro foi usado (código, manifests, pipeline, dashboards). Este arquivo é a nossa evidência.
+3. **Pitch:** a parte "por baixo do capô" da apresentação sai daqui.
+
+Registramos o que foi feito, o que a gente revisou e o que deu errado. Os prompts em si não ficam registrados.
 
 ## Quando registrar
 
-Registre uma entrada sempre que uma sessão com o Kiro produzir ou alterar algo relevante, como uma etapa de spec (requirements, design ou tasks), a execução de tarefas, a resolução de um problema difícil ou uma decisão técnica importante.
+Uma entrada por sessão que produziu ou mudou algo relevante: uma etapa de spec, a execução de tarefas, um problema difícil resolvido ou uma decisão técnica. Pergunta rápida que não gerou nada não precisa de entrada.
 
-Não é preciso registrar cada mensagem, nem perguntas rápidas que não geraram resultado. O ideal é uma entrada por sessão relevante, feita por quem conduziu a sessão, logo depois dela, enquanto ainda se lembra do que aconteceu.
+Quem conduziu a sessão escreve a entrada logo depois, enquanto ainda lembra do que aconteceu.
 
 ## Como preencher
 
-- **Prompt:** copie o prompt ou faça um resumo fiel. Se for muito longo, possivelmente pode ser salvo em outro local e colocado o link aqui.
-- **O que o Kiro produziu:** descreva o resultado em poucas linhas, sem colar o documento inteiro.
-- **Revisão humana:** campo mais importante. Registre o que foi corrigido, rejeitado ou questionado, e por quê. Se nada foi alterado, escreva "aprovado sem alterações" e diga quem revisou.
-- **Verificações:** liste as verificações que foram realmente executadas e os resultados. Podem ser automatizadas (testes de código, execução do pipeline) ou manuais (ex.: pods saudáveis, trace visível no Grafana).
-- **Registre também os erros do Kiro.** É interessante para estudarmos o tipo de erro que ele tá propenso a cometer. E como reagimos a ele.
+- **O que a IA produziu:** o resultado em poucas linhas, sem colar o documento inteiro.
+- **Revisão humana:** o campo mais importante. O que foi corrigido, rejeitado ou questionado, e por quê. Se nada mudou, escreva "aprovado sem alterações" e quem revisou.
+- **Verificações:** só o que foi realmente executado, com o resultado. Vale teste automatizado, pipeline ou checagem manual (pods saudáveis, trace no Grafana).
+- **Erros da IA:** anote também. Ajuda a entender que tipo de erro ela costuma cometer e como reagimos.
 
-## Modelo de entrada
-
-Exemplo de como podemos organizar cada entrada.
+## Modelo
 
 ```markdown
 ## Registro NN — <título curto>
 
 - **Data:** AAAA-MM-DD
-- **Responsável:** <nome de quem conduziu a sessão>
-- **Spec / tarefa:** <ex.: 01-nucleo-funcional / requirements.md ou tarefa 3.1>
+- **Responsável:** <quem conduziu a sessão>
+- **Ferramenta:** <Kiro, Claude Code etc.>
+- **Spec / tarefa:** <ex.: 01-backend-api / design.md ou tarefa 3.1>
 - **Objetivo:** <o que se queria obter>
-- **Prompt:** <prompt ou resumo fiel>
-- **O que o Kiro produziu:** <resultado em poucas linhas>
+- **O que a IA produziu:** <resultado em poucas linhas>
 - **Revisão humana:** <o que foi corrigido, rejeitado ou questionado, e por quê>
-- **Verificações:** <verificações executadas (automatizadas ou manuais) e resultados, ou "não executado">
-- **Decisões:** <IDs das decisões tomadas ou "nenhuma">
-- **Pendências / próximo passo:** <o que ficou em aberto>
-- **Evidência (opcional):** <link de PR, commit ou captura de tela>
+- **Verificações:** <o que foi executado e o resultado, ou "não executado">
+- **Decisões:** <IDs das decisões ou "nenhuma">
+- **Pendências:** <o que ficou em aberto>
+- **Evidência (opcional):** <PR, commit ou captura de tela>
 ```
 
 ---
 
-## Registro 01 — Requisitos da spec 01-nucleo-funcional (EXEMPLO)
-
-- **Data:** AAAA-MM-DD
-- **Responsável:** Fulano
-- **Spec / tarefa:** 01-nucleo-funcional / requirements.md
-- **Objetivo:** Obter uma proposta inicial de requisitos para criação, listagem e redirecionamento de links, sem avançar para o design.
-- **Prompt:** "Siga o sdd-workflow.md. Crie a spec 01-nucleo-funcional começando apenas pelo requirements.md, com base no SSOT. Liste ambiguidades e decisões pendentes. Não avance para o design."
-- **O que o Kiro produziu:** Um `requirements.md` com histórias de usuário e critérios de aceitação para criar, listar e redirecionar links, além de uma lista de ambiguidades (formato do código curto, comportamento para URL inválida, contagem de cliques).
-- **Revisão humana:** Removemos um requisito de autenticação de usuários, que não está no SSOT. Pedimos que sugestões opcionais ficassem separadas dos requisitos confirmados. Ajustamos o critério de URL inválida para exigir resposta de erro clara. Os demais requisitos foram aprovados após leitura em grupo.
-- **Verificações:** Não aplicável (etapa de documentação).
-- **Decisões:** Requisitos aprovados por Fulano e Ciclana. Formato do código curto segue pendente (proposta do Kiro ainda não aprovada).
-- **Pendências / próximo passo:** Decidir o formato do código curto e solicitar o `design.md`.
-
-## Registro 02 — Tarefa de redirecionamento com verificação falhando (EXEMPLO)
-
-- **Data:** AAAA-MM-DD
-- **Responsável:** Ciclana
-- **Spec / tarefa:** 01-nucleo-funcional / tarefa 4 (redirecionamento)
-- **Objetivo:** Implementar o redirecionamento e as verificações associadas.
-- **Prompt:** "Execute a tarefa 4 de tasks.md. Implemente somente o escopo dela e execute as verificações."
-- **O que o Kiro produziu:** Implementação do endpoint de redirecionamento e duas verificações automatizadas (testes de código).
-- **Revisão humana:** Na primeira execução, uma verificação falhou porque o código inexistente retornava resposta de sucesso em vez de 404. Pedimos a correção e revisamos o diff manualmente. O Kiro havia tentado marcar a tarefa como concluída antes da correção, e pedimos que só o fizesse após as verificações passarem.
-- **Verificações:** Verificações automatizadas da API executadas localmente: todas passaram após a correção.
-- **Decisões:** Nenhuma nova.
-- **Pendências / próximo passo:** Avançar para a tarefa 5.
-- **Evidência (opcional):** PR #__
-
-
----
-
-## Registro 02 — Estrutura DevOps & GitOps (spec 02-devops-gitops)
+## Registro 01 — Estrutura de DevOps e GitOps (spec 02-devops-gitops)
 
 - **Data:** 2026-10-16
-- **Responsável:** Nome 1 (DevOps & GitOps Lead)
-- **Spec / tarefa:** 02-devops-gitops / requirements.md, design.md, tasks.md + implementação da estrutura base
-- **Objetivo:** Preparar todo o terreno de infraestrutura (Kubernetes, CI/CD, GitOps) antes de o backend e o frontend estarem prontos, de forma que a integração seja um encaixe simples.
-- **Prompt:** "Leia os arquivos md do projeto e o PDF do hackathon. Baseado no conceito de DevOps e na minha função de DevOps & GitOps Lead, quero que você deixe tudo pronto para que quando se tenha o backend e o restante do sistema, fique mais fácil de acrescentar minha parte de DevOps e fazer as integrações. Nesse momento você deve apenas deixar o terreno pronto."
-- **O que o Kiro produziu:**
-  - Spec completa `02-devops-gitops` (requirements.md, design.md, tasks.md) cobrindo Kubernetes, GitHub Actions e ArgoCD.
-  - Manifests Kubernetes: namespace, argocd-app, ingress, api (deployment+service+configmap), frontend (deployment+service), database (statefulset+service+secret placeholder).
-  - Workflows GitHub Actions: `ci-api.yaml` e `ci-frontend.yaml` com jobs de test (placeholder), build+push para GHCR e atualização automática de tags nos manifests.
-  - `.gitignore` protegendo secrets locais.
-  - `docs/devops-integration-guide.md` explicando para cada colega o que precisa ser feito para conectar seu trabalho ao pipeline.
-- **Revisão humana:** _A preencher após revisão do Nome 1._
-- **Verificações:** Não executadas nesta fase (terreno/skeleton sem aplicação real). Verificações definidas em tasks.md serão executadas após as decisões pendentes serem confirmadas.
-- **Decisões:** D-07 (proposta: mono-repo, YAML raw), D-10 (proposta: GHCR), Q-01 (proposta: Ingress), Q-02 (proposta: StatefulSet + PVC) — todas como `Proposta`, aguardando confirmação do time.
-- **Pendências / próximo passo:**
-  - Confirmar D-02, D-03, D-04, D-05, D-08, D-10, Q-01, Q-03 no SSOT.
-  - Ajustar os TODOs nos manifests conforme as decisões forem aprovadas.
-  - Backend criar `api/Dockerfile` e endpoint `/health`.
-  - Frontend criar `frontend/Dockerfile`.
-  - Criar o Secret do banco no cluster.
-  - Atualizar a URL do repositório em `k8s/base/argocd-app.yaml`.
+- **Responsável:** Diêgo (DevOps e GitOps)
+- **Ferramenta:** Kiro
+- **Spec / tarefa:** 02-devops-gitops (requirements, design e tasks) e a estrutura base
+- **Objetivo:** deixar Kubernetes, CI/CD e GitOps preparados antes de o backend e o frontend ficarem prontos, para a integração ser só um encaixe.
+- **O que a IA produziu:**
+  - a spec `02-devops-gitops` completa;
+  - manifests de namespace, Ingress, API (Deployment, Service e ConfigMap), frontend (Deployment e Service) e banco (StatefulSet, Service e Secret de exemplo), mais um rascunho da Application do ArgoCD;
+  - dois workflows (`ci-api.yaml` e `ci-frontend.yaml`) com testes de placeholder, build e push no GHCR e atualização das tags;
+  - `.gitignore` protegendo secrets locais;
+  - `docs/devops-integration-guide.md`, explicando para cada pessoa como conectar sua parte.
+- **Revisão humana:** quando a API em Python ficou pronta (Registro 02), essa estrutura foi revisada e vários pontos foram corrigidos: as probes estavam em `/health` em vez de `/healthz` e `/readyz`, o Secret tinha base64 inválido, o Ingress tinha um `rewrite-target: /` que quebrava `/api`, e o nome da imagem tinha maiúsculas, o que o GHCR não aceita. Os dois workflows também foram unificados, porque faziam push das tags ao mesmo tempo.
+- **Verificações:** nenhuma nesta fase, porque ainda não havia aplicação para subir.
+- **Decisões:** D-07 (monorepo), D-10 (GHCR), Q-01 (Ingress) e Q-02 (StatefulSet com PVC), todas como proposta.
 
 ---
 
-## Registro 03 — Implementação Python: API, Kubernetes, CI/CD e observabilidade
+## Registro 02 — API em Python, Kubernetes, CI/CD e observabilidade
 
 - **Data:** 2026-10-16
 - **Responsável:** Diêgo
-- **Ferramenta:** Claude Code (assistente de IA no VS Code), a partir dos contratos produzidos com o Kiro
-- **Spec / tarefa:** 01-backend-api (reimplementada em Python), 02-devops-gitops, 04-observabilidade
-- **Objetivo:** Sair dos contratos e do esqueleto de infra para uma stack funcionando de ponta a ponta.
-- **Prompt (resumo fiel):** "Investigue todas as branches e proponha um plano, sem alterar nada. Depois, em branches novas, com um commit por etapa: API (slug opcional, listar, redirect 302 contando cliques, /healthz e /readyz) com testes; Dockerfiles e compose; manifests kustomize; frontend placeholder nginx; GitHub Actions + ArgoCD; OpenTelemetry + Collector, Tempo, Prometheus e Grafana; estrutura para features; README. Backend em Python e banco Postgres. Nunca colocar senhas reais; validar tudo e dizer o que não foi testado."
+- **Ferramenta:** Claude Code (no VS Code), partindo dos contratos produzidos com o Kiro
+- **Spec / tarefa:** 01-backend-api (reimplementada em Python), 02-devops-gitops e 04-observabilidade
+- **Objetivo:** sair dos contratos e do esqueleto de infra para uma stack funcionando de ponta a ponta.
 - **O que a IA produziu:**
-  - Branch `feat/backend-python`: API FastAPI + psycopg 3, schema único, telemetria conforme `otel-metrics-spec.md`, analytics (ranking e série por hora) e 43 testes.
-  - Branch `feat/devops-gitops-python`: manifests kustomize (reaproveitando a estrutura da branch de DevOps), frontend nginx com OTel, pipeline `ci-cd.yaml`, Application do ArgoCD, stack de observabilidade, dashboard, scripts de demo e README.
-- **Revisão humana / problemas encontrados e corrigidos:**
-  - A branch de DevOps tinha probes em `/health` (o contrato define `/healthz` e `/readyz`), um Secret com base64 inválido, um Ingress com `rewrite-target: /` que quebrava `/api` e uma imagem com maiúsculas no GHCR. Tudo foi corrigido.
-  - Os dois workflows faziam push concorrente das tags e foram unificados num pipeline.
-  - **Erro da IA:** o método `list` do repositório sombreava o builtin. Os testes passavam no Python 3.14 local e quebravam no 3.12 da imagem. Desde então, os testes rodam também em 3.12.
-  - **Erro da IA:** o `startupProbe` (80s) matava a API no primeiro boot do Postgres no kind. O orçamento subiu para 120s, acima da espera interna de 60s.
-  - Os traces tinham spans soltos do `/readyz` e spans internos do ASGI. Foram suprimidos, com teste.
-  - O mapa de serviços do Tempo não liga nginx → API (o nginx só emite spans SERVER). O painel foi trocado por "spans por componente".
-  - Pelos traces, o p95 do redirect estava em centenas de ms. A causa era o fsync do commit no disco do Docker/WSL. Com `synchronous_commit off` só no clique, o pior caso caiu de ~1s para ~12 ms.
+  - branch `feat/backend-python`: API com FastAPI e psycopg 3, schema único, telemetria seguindo o `otel-metrics-spec.md`, analytics (ranking e série por hora) e 43 testes;
+  - branch `feat/devops-gitops-python`: manifests em kustomize (aproveitando a estrutura do Registro 01), frontend placeholder em nginx com OpenTelemetry, pipeline `ci-cd.yaml`, Application do ArgoCD, stack de observabilidade, dashboard, scripts de demo e README.
+- **Revisão humana e problemas corrigidos:**
+  - os problemas da estrutura do Registro 01 (probes, Secret, Ingress, nome da imagem e workflows concorrentes);
+  - **erro da IA:** o método `list` do repositório sombreava o builtin. Os testes passavam no Python 3.14 local e quebravam no 3.12 da imagem. Desde então os testes rodam também em 3.12;
+  - **erro da IA:** o `startupProbe` (80s) matava a API no primeiro boot do Postgres no kind. O orçamento subiu para 120s, acima da espera interna de 60s;
+  - os traces tinham spans soltos do `/readyz` e spans internos do ASGI. Foram suprimidos, com teste;
+  - o mapa de serviços do Tempo não liga nginx e API (o nginx só emite spans SERVER). O painel virou "spans por componente";
+  - pelos traces, o p95 do redirect estava em centenas de ms por causa do fsync do commit no disco do Docker/WSL. Com `synchronous_commit off` só no clique, o pior caso caiu de cerca de 1s para cerca de 12 ms.
 - **Verificações:**
-  - pytest com 43 testes passando em Python 3.14 (local) e 3.12 (container).
-  - docker compose com a stack completa: trace navegador → nginx → API → Postgres no Tempo e os painéis do dashboard consultados via API do Grafana.
-  - Cluster kind: todos os pods Ready, probes testadas com o banco desligado, persistência no PVC e Prometheus coletando as 2 réplicas.
+  - pytest com 43 testes passando em Python 3.14 (local) e 3.12 (container);
+  - docker compose com a stack completa: trace navegador → nginx → API → Postgres no Tempo e painéis consultados pela API do Grafana;
+  - kind: todos os pods Ready, probes testadas com o banco desligado, persistência no PVC e Prometheus coletando as 2 réplicas;
   - actionlint, kubeconform (incluindo o CRD do ArgoCD) e shellcheck.
-- **Não verificado:** a execução real no GitHub Actions/GHCR e o ArgoCD sincronizando a partir do repositório (depende do merge na `main` e de um cluster com ArgoCD).
-- **Decisões:** D-03 Python/FastAPI e D-05 Postgres (confirmadas por Diêgo, aguardando ciência de Abby e Lucas); D-06, D-07 e D-10 como proposta.
-- **Pendências / próximo passo:** revisar e mesclar as branches; revisar a spec `01-backend-api` (escrita para Node); definir a identidade (D-08); construir o frontend real.
+- **Não verificado nesta sessão:** execução real no GitHub Actions e no GHCR e o ArgoCD sincronizando a partir do repositório. Isso foi validado depois, no Registro 05.
+- **Decisões:** D-03 (Python/FastAPI) e D-05 (Postgres) confirmadas por Diêgo; D-06, D-07 e D-10 como proposta.
+
+---
+
+## Registro 03 — Frontend e telas do Foldway
+
+- **Data:** 2026-10-17
+- **Responsável:** Joseph (frontend e telas)
+- **Ferramenta:** Kiro
+- **Spec / tarefa:** frontend (branch `feat/frontend-joseph`), seguindo a D-04
+- **Objetivo:** construir a interface do portal: criar e listar links, com a identidade do Foldway e do Furl.
+- **O que a IA produziu:**
+  - app em React 19 e Vite, com React Router e CSS puro, sem TypeScript;
+  - tela inicial com o formulário de criação, o resultado com botão de copiar e a lista de links;
+  - a animação da dobra (`FoldAnimation`): o endereço vira um papel kraft dobrado até o origami com o código curto;
+  - o Furl como componente trocável, com cinco poses (boas-vindas, dobrando, pronto, erro e mesa vazia) configuradas em `src/config/mascot.js`;
+  - telas de link inexistente ou expirado e de página não encontrada;
+  - `theme.css` como única fonte de cores, com o stylelint barrando cor fora do tema;
+  - `api.js` como única porta de rede (regra do ESLint), com um mock para trabalhar antes de a API existir;
+  - testes unitários, de componente e de acessibilidade (axe).
+- **Revisão humana:** o Joseph definiu a stack (D-04), as telas e o visual. Na integração com a API (Registro 04), o contrato provisório do `api.js` foi ajustado ao `openapi.yaml` e o mock, as variáveis `VITE_*` e alguns testes foram removidos. As telas, os componentes e o mascote ficaram como ele fez.
+- **Verificações:** os testes do frontend passaram na integração (Registro 04).
+- **Decisões:** D-04 (stack do frontend) confirmada; D-08 (mascote) e D-15 (paleta) como proposta.
 
 ---
 
@@ -134,52 +115,92 @@ Exemplo de como podemos organizar cada entrada.
 
 - **Data:** 2026-10-17
 - **Responsável:** Diêgo
-- **Ferramenta:** Claude Code (assistente de IA no VS Code)
-- **Spec / tarefa:** integração do frontend do Joseph (`feat/frontend-joseph`) com a API Python; feature exclusiva; GitHub Actions
-- **Objetivo:** Deixar o sistema funcionando com o frontend real, simplificar o código e entregar a feature do QR Code.
-- **Prompt (resumo fiel):** "Integre a branch do frontend e torne o sistema funcional. Verifique o código do frontend e simplifique o que for desnecessário. Faça o GitHub Actions do projeto. O recurso extra é um QR Code que leva ao link encurtado, com visual combinando com o frontend."
+- **Ferramenta:** Claude Code (no VS Code)
+- **Spec / tarefa:** integração do frontend do Joseph (`feat/frontend-joseph`, Registro 03) com a API, feature exclusiva e GitHub Actions
+- **Objetivo:** ter o sistema funcionando com o frontend real, simplificar o código e entregar a feature do QR Code.
 - **O que a IA produziu:**
-  - Branch `feat/frontend-integracao` (a partir de `feat/devops-gitops-python`), com merge da branch do Joseph preservando o histórico.
-  - `api.js` falando com a API real e convertendo o contrato; proxy do Vite em desenvolvimento; rota `/r/:code` para link inexistente ou expirado (D-11 a D-13).
-  - Simplificação: mock, variáveis `VITE_*`, arquivos `.env`, testes sem valor, CSS duplicado de botões e comentários de desabilitar o stylelint removidos (o frontend ficou cerca de 350 linhas menor).
-  - QR Code (D-17) com o origami no centro e download em PNG, apontando para `/r/{code}?via=qr`; a API conta `kiro_feature_used_total{feature="qrcode"}`.
-  - Tracing do navegador portado do placeholder para `src/api/tracing.js` (D-14).
-  - Dockerfile multi-stage, nginx com cache e gzip, e job `test-frontend` no `ci-cd.yaml`.
-- **Revisão humana / problemas encontrados e corrigidos:**
-  - O contrato provisório do frontend (`{ url }`, lista como array, `body.error` como mensagem) não batia com a API; a conversão ficou só no `api.js`.
-  - **Erro da IA:** a primeira resolução do conflito no `SSOT.md` rodou sem Python no PATH e o merge foi commitado com marcadores de conflito. Foi detectado na hora e o commit de merge (ainda local) foi refeito.
-  - **Erro da IA:** um commit da API levou junto arquivos do frontend que já estavam no índice. Foi desfeito (ainda local) e refeito separado.
-  - Remover o placeholder apagaria os spans `kiro-browser` usados por um painel do dashboard; o tracing foi portado para o app React.
-  - No runner Linux, `stylelint src/**/*.css` sem aspas não desce até os CSS dos componentes; o glob foi colocado entre aspas.
-  - Coral nos módulos do QR ficaria perto do limiar de leitura das câmeras; os módulos ficaram em índigo e o coral só no origami central.
+  - branch `feat/frontend-integracao`, com o merge da branch do Joseph preservando o histórico;
+  - `api.js` falando com a API real e convertendo o contrato; proxy do Vite em desenvolvimento; rota `/r/:code` para link inexistente ou expirado (D-11 a D-13);
+  - simplificação: saíram o mock, as variáveis `VITE_*`, os arquivos `.env`, testes sem valor, CSS duplicado de botões e comentários que desligavam o stylelint (cerca de 350 linhas a menos);
+  - QR Code (D-17) com o origami no centro e download em PNG, apontando para `/r/{code}?via=qr`; a API conta `kiro_feature_used_total{feature="qrcode"}`;
+  - tracing do navegador levado do placeholder para `src/api/tracing.js` (D-14);
+  - Dockerfile multi-stage, nginx com cache e gzip e job `test-frontend` no `ci-cd.yaml`.
+- **Revisão humana e problemas corrigidos:**
+  - o contrato provisório do frontend (`{ url }`, lista como array, `body.error` como mensagem) não batia com a API. A conversão ficou só no `api.js`;
+  - **erro da IA:** a primeira resolução do conflito no `SSOT.md` rodou sem Python no PATH e o merge foi commitado com marcadores de conflito. Vimos na hora e o merge (ainda local) foi refeito;
+  - **erro da IA:** um commit da API levou junto arquivos do frontend que já estavam no índice. Foi desfeito (ainda local) e refeito separado;
+  - tirar o placeholder apagaria os spans `kiro-browser` usados num painel do dashboard, então o tracing foi portado para o app React;
+  - no runner Linux, `stylelint src/**/*.css` sem aspas não entrava nas pastas dos componentes. O glob foi colocado entre aspas;
+  - coral nos módulos do QR ficaria perto do limite de leitura das câmeras. Os módulos ficaram em índigo e o coral só no origami do centro.
 - **Verificações:**
-  - Frontend: 92 testes (incluindo axe e decodificação real do QR com `jsqr` em URLs curtas e longas), ESLint e stylelint; os mesmos passos do CI rodados num container Linux com Node 22.
-  - API: 44 testes com Postgres.
-  - docker compose com a stack completa: criação, redirect pelo QR (302 e métrica `qrcode` contada), `/r/inexistente` com 404 e a tela do Furl, spans `kiro-browser`, `kiro-frontend` e `kiro-api` no Prometheus (span metrics).
-  - Navegador (Edge headless): fluxo de criação com a animação, QR no resultado e na lista, PNG baixado decodificado de volta para a URL certa, layout em 390 px.
+  - frontend: 92 testes (incluindo axe e decodificação real do QR com `jsqr`, em URLs curtas e longas), ESLint e stylelint; os mesmos passos do CI rodados num container Linux com Node 22;
+  - API: 44 testes com Postgres;
+  - docker compose: criação, redirect pelo QR (302 e métrica `qrcode` contada), `/r/inexistente` com 404 e a tela do Furl, spans `kiro-browser`, `kiro-frontend` e `kiro-api` nas span metrics;
+  - navegador (Edge headless): fluxo de criação com a animação, QR no resultado e na lista, PNG baixado e decodificado de volta para a URL certa, layout em 390 px;
   - actionlint no workflow.
-- **Não verificado:** leitura do QR por câmera de celular (validado só por decodificador); execução do deploy na `main` (GHCR e commit da tag) e o ArgoCD sincronizando.
-- **Decisões:** D-11 a D-14 e D-17 registradas como proposta, aguardando aprovação do Joseph.
+- **Não verificado:** leitura do QR por câmera de celular (só por decodificador).
+- **Decisões:** D-11 a D-14 e D-17 como proposta, aguardando aprovação do Diêgo.
 
 ---
 
-## Tabela de prompts e decisões (preencher durante o projeto)
+## Registro 05 — Validação de SRE do projeto inteiro
 
-Uma linha por interação relevante com o Kiro (ou outra IA). Este é o material da parte "como o Kiro ajudou" do pitch.
-
-| # | Data | Quem | Ferramenta | Área | Prompt (resumo) | Resultado | Revisão humana (aceito / corrigido / rejeitado e por quê) | Decisão / ID |
-|---|---|---|---|---|---|---|---|---|
-| 1 | 2026-10-15 | | Kiro | Spec backend | | | | D-03 |
-| 2 | 2026-10-15 | | Kiro | Spec DevOps | | | | D-07, D-10 |
-| 3 | 2026-10-15 | | Kiro | Observabilidade | | | | D-09 |
-| 4 | 2026-10-16 | Diêgo | Claude Code | API + infra + observabilidade | Ver Registro 03 | Ver Registro 03 | Ver Registro 03 | D-03, D-05 |
-| 5 | | | Kiro | Identidade / personagem | | | | D-08 |
-| 6 | | | Kiro | Frontend | | | | D-04 |
-| 6b | 2026-10-17 | Diêgo | Claude Code | Integração do frontend + CI | Ver Registro 04 | Ver Registro 04 | Ver Registro 04 | D-11 a D-14 |
-| 7 | 2026-10-17 | Diêgo | Claude Code | Feature exclusiva (QR Code) | Ver Registro 04 | Ver Registro 04 | Ver Registro 04 | D-17 |
+- **Data:** 2026-10-17 e 2026-10-18
+- **Responsável:** Abby (SRE e observabilidade)
+- **Ferramenta:** Claude, apoiando o roteiro de testes, a leitura das saídas e a redação do relatório
+- **Spec / tarefa:** 02-devops-gitops e 04-observabilidade (verificações); README
+- **Objetivo:** seguir o README do zero e confirmar que tudo o que ele promete funciona, no compose, no kind e com o ArgoCD.
+- **O que a IA produziu:** o roteiro dos testes, a análise dos resultados e o texto do `docs/validacao-sre.md`. Os comandos foram executados por pessoas.
+- **Revisão humana:** cada achado foi decidido pela equipe: corrigir, documentar ou aceitar o risco. Os 15 achados e o que foi feito com cada um estão na seção 4 do relatório. Entre as correções: scripts sem permissão de execução, testes da API passando a rodar pelo compose em Python 3.12, `scripts/port-forward.sh` e o filtro `http_route!=""` no dashboard.
+- **Verificações:** seis dos sete testes de comportamento no cluster passaram e um passou com ressalva (um 504 em 300 requisições durante o rollout). Pipeline validado na `main`, com o bot commitando a nova tag e o ArgoCD aplicando.
+- **Decisões:** nenhuma nova. Riscos aceitos e limitações registrados no relatório.
+- **Evidência:** `docs/validacao-sre.md`, PR #4.
 
 ---
 
-## Lições aprendidas (preencher ao longo do projeto)
+## Registro 06 — Specs, steering e docs alinhados ao que foi construído
 
-Aqui podemos anotar o que funcionou bem e o que não funcionou no uso do Kiro (tipos de prompt eficazes, erros recorrentes, regras de steering que ajudaram). Este trecho alimenta a parte "como o Kiro nos ajudou" do pitch.
+- **Data:** 2026-10-18
+- **Responsável:** Diêgo
+- **Ferramenta:** Claude Code (no VS Code)
+- **Spec / tarefa:** as três specs, os quatro arquivos de steering e os arquivos de `docs/`
+- **Objetivo:** as specs ainda carregavam o plano antigo (Node.js, cache em memória, dois workflows, probes em `/health`) e uma série de notas de divergência. A ideia foi deixar cada documento descrevendo o projeto como ele é hoje.
+- **O que a IA produziu:**
+  - `requirements.md`, `design.md` e `tasks.md` das specs 01, 02 e 04 reescritos a partir do código, com o que ficou de fora listado e as pendências no fim das tarefas;
+  - steering com a stack em uso, a estrutura real do repositório e o fluxo SDD com as specs que existem;
+  - `docs/otel-metrics-spec.md` com as rotas, os nomes de serviço e as consultas que o dashboard usa de verdade;
+  - `docs/devops-integration-guide.md` reescrito para o estado atual;
+  - `docs/development-workflow.md` sem os exemplos de prompt;
+  - este arquivo sem os prompts e sem as entradas de exemplo, e com o registro do frontend do Joseph (Registro 03), que ainda não estava aqui.
+- **Revisão humana:** o Diêgo revisou os documentos e aprovou as três specs em 2026-10-18.
+- **Verificações:** as afirmações dos documentos foram conferidas no código (`api/app/`, `k8s/`, `.github/workflows/ci-cd.yaml`, `frontend/nginx.conf` e `frontend/src/api/tracing.js`). Nenhum teste foi rodado, porque só mudou documentação.
+- **Decisões:** nenhuma nova.
+
+---
+
+## Resumo por área
+
+Uma linha por interação relevante com o Kiro ou outra IA. É a base da parte "como o Kiro ajudou" do pitch.
+
+| # | Data | Quem | Ferramenta | Área | Resultado | Revisão humana | Decisões |
+|---|---|---|---|---|---|---|---|
+| 1 | 2026-10-15 | Abby | Kiro | Observabilidade | Stack definida, requisitos da spec 04 e rascunho do contrato de telemetria | Contrato revisado pela Abby (v2) | D-09 |
+| 2 | 2026-10-16 | Lucas | Kiro | Spec do backend | Spec 01 e `openapi.yaml`, escritos para Node.js | Spec reescrita depois da troca para Python (Registro 06) | D-03 |
+| 3 | 2026-10-16 | Diêgo | Kiro | DevOps e GitOps | Registro 01 | Registro 01 | D-07, D-10 |
+| 4 | 2026-10-16 | Diêgo | Claude Code | API, infra e observabilidade | Registro 02 | Registro 02 | D-03, D-05 |
+| 5 | 2026-10-17 | Joseph | Kiro | Frontend e telas | Registro 03 | Registro 03 | D-04, D-08, D-15 |
+| 5b | 2026-10-17 | Fábio | — | Identidade (brand book) | `docs/brand-book.md` com personagem, tema, tom de voz e features do Foldway | A preencher pelo Fábio | D-08, D-16, D-17 |
+| 6 | 2026-10-17 | Diêgo | Claude Code | Integração do frontend e CI | Registro 04 | Registro 04 | D-11 a D-14 |
+| 7 | 2026-10-17 | Diêgo | Claude Code | Feature exclusiva (QR Code) | Registro 04 | Registro 04 | D-17 |
+| 8 | 2026-10-18 | Abby | Claude | Validação de SRE | Registro 05 | Registro 05 | — |
+| 9 | 2026-10-18 | Diêgo | Claude Code | Documentação | Registro 06 | Aprovado pelo Diêgo | — |
+
+---
+
+## Lições aprendidas
+
+- **Rodar os testes na mesma versão da imagem.** O bug do `list` só apareceu no Python 3.12. Depois disso, o CI e o profile `test` do compose usam a mesma versão do Dockerfile.
+- **Os traces pagaram o esforço.** Foi olhando um trace que achamos o fsync que segurava o redirect. Sem o trace teríamos culpado a API.
+- **Pedir evidência, não "está funcionando".** Os dois erros de commit do Registro 04 foram pegos porque a gente olhava o diff antes de seguir.
+- **Spec escrita antes da decisão envelhece rápido.** A spec do backend foi escrita para Node e virou quase toda divergência quando trocamos para Python. Atualizar a spec logo depois da mudança teria dado menos trabalho do que acumular notas.
+- **Probes conversam entre si.** O `startupProbe` do Kubernetes precisa ser maior que a espera interna da API pelo banco. O valor que parecia folgado não era.

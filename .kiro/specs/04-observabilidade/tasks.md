@@ -1,184 +1,64 @@
-Status: Reconciliado com a implementação em 18/10/2026 (escrito após a implementação)
+Status: Aprovado em 2026-10-18 por Diêgo
 
-> Tarefas concluídas reconstruídas a partir da implementação; não refletem o histórico real do desenvolvimento.
+# Tarefas — Observabilidade
 
-# Tasks — 04 Observabilidade
+A parte de contrato (`docs/otel-metrics-spec.md`) e os requisitos vieram primeiro, na branch `feat/observabilidade-abby`. A implementação foi feita junto com a API em Python e os manifests, e depois ganhou o tracing do navegador quando o frontend real entrou.
 
----
+## 1. Contrato
 
-## Concluídas
+- [x] 1.1 Definir a stack (D-09) e escrever o contrato de telemetria: métricas, atributos, regra de cardinalidade, nomes dos spans e consultas do dashboard.
+- [x] 1.2 Revisar o rascunho inicial do contrato (troca do `http_requests_total` pelo histograma HTTP, buckets em segundos, view `active_links`).
 
-### T-01 — Módulo central de telemetria da API
-**Arquivo:** `api/app/telemetry.py`
+## 2. Instrumentação da API
 
-Implementado o módulo que inicializa o `TracerProvider` (OTLP/HTTP), o `MeterProvider` (PrometheusMetricReader) e expõe a interface usada pelo código de negócio (`link_created`, `link_clicked`, `redirect_finished`, `feature_used`, `tag_short_code`, `untraced`, `set_active_links_source`). Chamado uma única vez em `api/app/main.py`.
+- [x] 2.1 Módulo `api/app/telemetry.py` com tracer, meter e a rota `/metrics`.
+- [x] 2.2 Métricas de negócio (`kiro.links.created`, `kiro.link.clicks`, `kiro.link.redirect.duration`, `kiro.active_links`).
+- [x] 2.3 `kiro.feature.used` com conjunto fechado de features.
+- [x] 2.4 Atributo `kiro.link.short_code` nos spans.
+- [x] 2.5 Tirar probes, boot e spans internos do ASGI dos traces.
+- [x] 2.6 Testes do contrato em `api/tests/test_telemetry.py`.
 
-- [x] `TracerProvider` com `BatchSpanProcessor` + `OTLPSpanExporter`
-- [x] `MeterProvider` com `PrometheusMetricReader`
-- [x] `OTEL_SEMCONV_STABILITY_OPT_IN=http` forçado antes dos imports de instrumentação
-- [x] `FastAPIInstrumentor` instrumentando o app com `excluded_urls` para probes e `/metrics`
-- [x] `PsycopgInstrumentor` para spans automáticos do banco
+Verificação: testes passando e `/metrics` conferido contra o contrato.
 
----
+## 3. Stack de observabilidade
 
-### T-02 — Endpoint `GET /metrics`
-**Arquivo:** `api/app/telemetry.py` (função `setup`)
+- [x] 3.1 Collector com OTLP gRPC e HTTP, `memory_limiter`, `batch` e saída para o Tempo.
+- [x] 3.2 Tempo com retenção de 24h e `metrics_generator` mandando span metrics para o Prometheus.
+- [x] 3.3 Prometheus com descoberta por pod no Kubernetes e alvo fixo no compose.
+- [x] 3.4 Grafana com fontes de dados (Prometheus, Tempo e Postgres) e provider de dashboards provisionados.
+- [x] 3.5 Manifests em `k8s/observability/` e ConfigMaps gerados pelo kustomize a partir dos mesmos arquivos do compose.
+- [x] 3.6 Variáveis `OTEL_*` no ConfigMap da API e anotações de scrape no Deployment.
 
-A rota `GET /metrics` é registrada em `setup()` usando `prometheus_client.generate_latest(REGISTRY)`. Excluída do schema OpenAPI e das métricas HTTP.
+Verificação: compose com todos os serviços no ar; alvo da API `UP`; no kind, as 2 réplicas aparecendo como alvos separados.
 
-- [x] Endpoint exposto na mesma porta da API (8080)
-- [x] Formato de exposição de texto do Prometheus
-- [x] Sem autenticação
+## 4. Dashboard
 
----
+- [x] 4.1 Painéis exigidos: cliques, latência p50/p95/p99, erros 5xx, status, requisições por rota, links ativos, links criados e pods no ar.
+- [x] 4.2 Painéis extras: resultado dos redirects, uso de features, latência HTTP por rota, spans por componente e traces recentes.
+- [x] 4.3 "Link do dia" com SQL direto no Postgres.
+- [x] 4.4 Eixo da taxa de erros 5xx fixo em 0 a 100%.
+- [x] 4.5 Filtro `http_route!=""` nos painéis por rota, para sumir a série "Value".
 
-### T-03 — Probes `GET /healthz` e `GET /readyz`
-**Arquivo:** `api/app/main.py`
+Verificação: painéis consultados pela API do Grafana durante a carga de `gerar-trafego.sh`; números do "Link do dia" batendo com as métricas.
 
-- [x] `/healthz` retorna 200 sem verificar o banco
-- [x] `/readyz` retorna 200 quando o banco responde; 503 caso contrário
-- [x] Ambas excluídas de spans e métricas HTTP (`EXCLUDED_URLS`)
+## 5. Traces de ponta a ponta
 
----
+- [x] 5.1 nginx com `ngx_otel_module`, continuando o `traceparent` e exportando `kiro-frontend`.
+- [x] 5.2 `trace_id` no log de acesso do nginx.
+- [x] 5.3 `frontend/src/api/tracing.js` gerando os spans `kiro-browser` e enviando por `/otlp` (D-14).
+- [x] 5.4 Painel de spans por componente no lugar do service graph, que não ligava nginx e API.
 
-### T-04 — Métricas de negócio: contadores e histograma de redirect
-**Arquivo:** `api/app/telemetry.py` (`_setup_providers`), `api/app/main.py` (pontos de emissão)
+Verificação: trace com `kiro-browser` → `kiro-frontend` → `kiro-api` → Postgres no mesmo Trace ID; trace aberto a partir de uma linha de log.
 
-- [x] `kiro.links.created` (Counter, atributo `kind`)
-- [x] `kiro.link.clicks` (Counter, sem atributos)
-- [x] `kiro.link.redirect.duration` (Histogram, atributo `outcome`, buckets explícitos `[0.005…1.0]`)
-- [x] `kiro.feature.used` (Counter, atributo `feature`, conjunto fixo em `FEATURES`)
-- [x] Emissão em `create_link`, `redirect`, `link_stats`, `ranking` em `main.py`
+## 6. Ajuste de latência
 
----
+- [x] 6.1 Investigar pelo trace o p95 alto do redirect. A causa era o fsync do commit; a correção (`synchronous_commit off` só no clique) está na spec 01.
 
-### T-05 — Gauge observável `kiro.active_links`
-**Arquivos:** `api/app/telemetry.py` (`_observe_active_links`), `api/app/repository.py` (`count_active`), `api/app/schema.sql` (view `active_links`), `api/app/main.py` (`set_active_links_source`)
+Verificação: p95 do redirect por volta de 10 ms com carga.
 
-- [x] Callback registrado no `MeterProvider`
-- [x] Executa `SELECT count(*) FROM active_links` via `repo.count_active()`
-- [x] Execução dentro de `suppress_instrumentation()` (sem traces de coleta)
+## Pendências
 
----
-
-### T-06 — Atributo de span `kiro.link.short_code`
-**Arquivo:** `api/app/telemetry.py` (`tag_short_code`), `api/app/main.py`
-
-- [x] `tag_short_code` chama `trace.get_current_span().set_attribute(...)`
-- [x] Chamado em `create_link`, `redirect` e `link_stats`
-
----
-
-### T-07 — Tracing no frontend: `tracedFetch` com propagação W3C
-**Arquivo:** `frontend/src/api/tracing.js`
-
-- [x] Gera `traceId` e `spanId` com `crypto.getRandomValues`
-- [x] Injeta cabeçalho `traceparent` em cada chamada `fetch`
-- [x] Serializa e envia span em OTLP/JSON para `/otlp/v1/traces` com `keepalive: true`
-- [x] `service.name = 'kiro-browser'` (divergência intencional — ver D-14 no SSOT e design.md seção 7)
-
----
-
-### T-08 — Nginx como elo do trace (módulo `ngx_otel_module`)
-**Arquivos:** `frontend/Dockerfile` (imagem `nginx:1.27-alpine-otel`), `frontend/nginx.conf`
-
-- [x] `load_module modules/ngx_otel_module.so`
-- [x] `otel_service_name kiro-frontend`
-- [x] `otel_exporter { endpoint otel-collector:4317; }`
-- [x] `otel_trace_context propagate` (continua o `traceparent` do navegador)
-- [x] Rota `/otlp/` encaminha spans do navegador ao Collector (porta 4318)
-
----
-
-### T-09 — OTel Collector: configuração e manifest Kubernetes
-**Arquivos:** `k8s/observability/config/otel-collector.yaml` (config), `k8s/observability/otel-collector.yaml` (manifest)
-
-- [x] Receiver OTLP gRPC (4317) e HTTP (4318)
-- [x] `memory_limiter` + `batch`
-- [x] Pipeline `traces` → Tempo (OTLP gRPC 4317, insecure)
-- [x] Deployment + Service Kubernetes
-- [x] Config montada via ConfigMap `otel-collector-config`
-- [x] Liveness/readiness probe no endpoint `/` na porta 13133
-
----
-
-### T-10 — Tempo: configuração e manifest Kubernetes
-**Arquivos:** `k8s/observability/config/tempo.yaml`, `k8s/observability/tempo.yaml`
-
-- [x] Modo monolítico, storage local
-- [x] Receiver OTLP gRPC na 4317
-- [x] Retenção de 24h
-- [x] `metrics_generator` com `service-graphs`, `span-metrics`, `local-blocks`
-- [x] Remote write para Prometheus com exemplares
-- [x] Deployment + Service Kubernetes (portas 3200 e 4317)
-
----
-
-### T-11 — Prometheus: configuração e manifest Kubernetes
-**Arquivos:** `k8s/observability/config/prometheus.yaml` (k8s), `k8s/observability/config/prometheus.compose.yaml` (compose), `k8s/observability/prometheus.yaml`
-
-- [x] Descoberta via `kubernetes_sd` (role `pod`, namespace `encurtador`) com anotações `prometheus.io/*`
-- [x] `--web.enable-remote-write-receiver` e `--enable-feature=exemplar-storage`
-- [x] ServiceAccount + Role + RoleBinding para listar pods
-- [x] Deployment + Service Kubernetes
-- [x] Configuração compose com scrape estático em `api:8080`
-
----
-
-### T-12 — Grafana: datasources, dashboard provider e manifest Kubernetes
-**Arquivos:** `k8s/observability/config/grafana-datasources.yaml`, `k8s/observability/config/grafana-dashboards.yaml`, `k8s/observability/grafana.yaml`
-
-- [x] Datasource Prometheus (`uid: prometheus`, padrão)
-- [x] Datasource Tempo (`uid: tempo`, service map e node graph habilitados)
-- [x] Datasource Postgres (`uid: postgres`, credenciais via Secret `db-credentials`)
-- [x] Dashboard provider lendo JSONs de `/var/lib/grafana/dashboards`
-- [x] Acesso anônimo (role Viewer) habilitado para demo
-- [x] Deployment + Service Kubernetes; volumes via ConfigMaps e emptyDir
-
----
-
-### T-13 — Dashboard `kiro-portal.json` versionado
-**Arquivo:** `k8s/observability/dashboards/kiro-portal.json`
-
-- [x] Dashboard JSON versionado no repositório (18 painéis de dados + rows de agrupamento)
-- [x] Definido como home dashboard (`GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH`)
-- [x] Carregado automaticamente ao iniciar o Grafana (sem configuração manual)
-- [x] Painel "Link do dia" (id 20) via Postgres SQL — requisito desejável atendido
-- [x] Painéis extras: "Uso de features", "Traces recentes", "Spans/s por componente", "Latência HTTP p95 por rota", "Resultado dos redirects"
-
----
-
-### T-15 — ConfigMap de variáveis OTel para o Deployment da API
-**Arquivo:** `k8s/api/configmap.yaml`
-
-- [x] ConfigMap `api-config` define `OTEL_SERVICE_NAME`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_PROPAGATORS` e `OTEL_TRACES_SAMPLER` (linhas 24–27)
-- [x] Deployment da API referencia o ConfigMap via `envFrom.configMapRef` (`k8s/api/deployment.yaml`)
-
----
-
-### T-16 — Anotações de scrape no Deployment da API
-**Arquivo:** `k8s/api/deployment.yaml`
-
-- [x] Anotações `prometheus.io/scrape: "true"`, `prometheus.io/port: "8080"` e `prometheus.io/path: "/metrics"` presentes (linhas 20–22)
-
----
-
-## Verificações
-
-### V-17 — Confirmar painéis do dashboard (verificação em execução)
-
-Painéis lidos de `k8s/observability/dashboards/kiro-portal.json` e listados em design.md, seção 5.
-
-**Resultado:** todos os painéis exigidos pelo Requisito 5 estão presentes. Painel "Link do dia" via SQL também confirmado (id 20). A query PromQL de "saúde da API" usa `up{app="api"}` em vez de `up{job=~".*kiro-api.*"}` — divergência registrada em requirements.md e design.md. A verificação de que os painéis mostram dados corretos em execução não foi realizada.
-
----
-
-### V-18 — Span de erro 5xx marcado como erro
-
-**Resultado: não verificado.** Requisito desejável, não testado por falta de tempo antes da entrega.
-
----
-
-### V-19 — Emissão de `db.client.operation.duration`
-
-**Resultado: não confirmado.** O comando `curl -s localhost:8080/metrics | grep db_client` não retornou nenhuma linha. O `PsycopgInstrumentor` gera spans do banco, mas a emissão do histograma não foi confirmada.
+- [ ] Confirmar se um 5xx marca o span da API como erro.
+- [ ] Ver por que `db.client.operation.duration` não aparece no `/metrics`.
+- [ ] Avaliar um alerta ou painel que pegue erros gerados pelo nginx.
+- [ ] Aprovação formal do contrato `docs/otel-metrics-spec.md`.

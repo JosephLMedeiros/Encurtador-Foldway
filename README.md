@@ -516,4 +516,4 @@ A implementação em Python (API, manifests, pipeline e observabilidade) foi fei
 - traces poluídos pelas probes;
 - picos de latência por fsync.
 
-Os prompts, as decisões e as revisões estão em [docs/kiro-log.md](docs/kiro-log.md).
+O que cada sessão produziu, as revisões e as decisões estão em [docs/kiro-log.md](docs/kiro-log.md).

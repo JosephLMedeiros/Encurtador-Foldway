@@ -1,5 +1,3 @@
-Reconciliado com a implementação em 18/10/2026 (escrito após a implementação). Aprovações pendentes do aprovador.
-
 # SSOT — Foldway (nome proposto em D-16)
 
 ## 1. Propósito do documento
@@ -101,7 +99,7 @@ A solução deverá integrar esses componentes à infraestrutura Kubernetes, ao 
 |---|---|---|---|---|---|---|
 | D-01 | Stack obrigatória: Kubernetes, GitHub Actions, ArgoCD, OpenTelemetry, Grafana | Confirmada | 2026-10-13 | Definida pelo enunciado | — | Sim — `k8s/`, `.github/workflows/ci-cd.yaml`, `argocd/application.yaml`, `k8s/observability/` |
 | D-02 | Ambiente Kubernetes (local ou cluster do bootcamp) | Pendente | | Não houve decisão formal sobre local vs. cluster do bootcamp. A stack roda em kind com ArgoCD (`README.md`, seção 3; `scripts/kind-up.sh`; `argocd/application.yaml`). O `base/ingress.yaml` existe mas está comentado no kustomization, indicando que o Ingress ainda depende do ambiente definitivo. | | Sim (kind + ArgoCD) — `scripts/kind-up.sh`, `argocd/application.yaml`, `k8s/kustomization.yaml` |
-| D-03 | Tecnologia da API | Confirmada | 2026-10-16 | Python 3.12 + FastAPI + psycopg 3 (substitui a decisão de 2026-10-15 por Node.js). FastAPI dá validação e OpenAPI nativos e tem instrumentação OTel oficial; a spec `01-backend-api` (escrita para Node/Fastify) precisa ser revisada — estado atual da spec não verificado. | Diêgo (aguardando ciência de Abby e Lucas) | Sim — `api/requirements.txt`, `api/app/main.py` |
+| D-03 | Tecnologia da API | Confirmada | 2026-10-16 | Python 3.12 + FastAPI + psycopg 3 (substitui a decisão de 2026-10-15 por Node.js). FastAPI dá validação e OpenAPI nativos e tem instrumentação OTel oficial. A spec `01-backend-api`, escrita para Node/Fastify, foi reescrita para Python e aprovada em 2026-10-18. | Diêgo (aguardando ciência de Abby e Lucas) | Sim — `api/requirements.txt`, `api/app/main.py` |
 | D-04 | Frontend: React + Vite, JavaScript (sem TypeScript), React Router, CSS puro com variáveis de tema, animações em CSS e SVG, acesso à API concentrado em um único módulo (`api.js`) | Confirmada | 2026-10-15 | Proposta pelo responsável pelo frontend, É a stack que ele conhece e facilita a revisão do código gerado pelo Kiro. Em 2026-10-17 o mock da API foi removido, depois da integração com a API real. | — | Sim — `frontend/package.json` (React 19, Vite 8, React Router 7) |
 | D-05 | Banco de dados | Confirmada | 2026-10-16 | PostgreSQL 16 (schema em `api/app/schema.sql`, aplicado pela API com advisory lock). | Diêgo (aguardando ciência de Abby e Lucas) | Sim — `api/app/schema.sql`, `k8s/database/statefulset.yaml` |
 | D-06 | Formato do código curto | Proposta | 2026-10-16 | Aleatório: 7 caracteres `[a-z0-9]` (configurável). Personalizado: 3-50 `[A-Za-z0-9_-]`. Redirect canônico em `/r/{code}`, com `/{code}` aceito por compatibilidade. | | Sim — `api/app/shortcode.py`, `api/app/main.py`, `k8s/api/configmap.yaml` (`SHORT_CODE_LENGTH`) |
@@ -116,7 +114,7 @@ A solução deverá integrar esses componentes à infraestrutura Kubernetes, ao 
 | D-15 | Paleta visual: Índigo, papel e coral, em versão clara (fundo `--color-mist`, texto índigo) | Proposta | | Índigo #14182B, azul-ardósia #2C3A5E, branco-papel #F7F3EA, kraft #CDB28A, coral #F2553D, ciano #2DE2E6 (valores de referência) | | Sim — `frontend/src/` (variáveis CSS de tema) |
 | D-16 | Nome do portal: **Foldway** (feature exclusiva proposta em D-17) | Proposta | | | | Sim — `README.md`, `frontend/` (identidade visual implementada) |
 | D-17 | Feature exclusiva: **QR Code** de cada link curto, com o origami no centro, download em PNG e acessos medidos (`kiro_feature_used_total{feature="qrcode"}`, via `/r/{code}?via=qr`) | Proposta | 2026-10-17 | Gerado no navegador (`qrcode-generator`), sem endpoint novo. Alternativa descartada: gerar o PNG na API (mais código no backend e o visual não acompanharia o tema) | | Sim — `frontend/package.json` (`qrcode-generator`), `api/app/main.py` (`via=qr`), `api/app/telemetry.py` (`feature_used("qrcode")`) |
-| D-18 | Uso de ferramentas de IA no desenvolvimento | Proposta | 2026-10-18 | O planejamento e os contratos (`openapi.yaml`, schema, `otel-metrics-spec.md`) foram produzidos com o Kiro. A implementação em Python (API, manifests, pipeline e observabilidade) foi feita com o Claude Code sob revisão humana (`README.md`, seção "Como a IA foi usada"). A validação de SRE foi apoiada pelo Claude (`docs/validacao-sre.md`). Os specs foram reconciliados depois da implementação (`.kiro/specs/`). | | Sim — `README.md` (seção "Como a IA foi usada"), `docs/kiro-log.md`, `docs/validacao-sre.md` |
+| D-18 | Uso de ferramentas de IA no desenvolvimento | Proposta | 2026-10-18 | O planejamento e os contratos (`openapi.yaml`, schema, `otel-metrics-spec.md`) foram produzidos com o Kiro. A implementação em Python (API, manifests, pipeline e observabilidade) foi feita com o Claude Code sob revisão humana (`README.md`, seção "Como a IA foi usada"). A validação de SRE foi apoiada pelo Claude (`docs/validacao-sre.md`). As specs foram atualizadas depois da implementação para descrever o que foi construído (`.kiro/specs/`). | | Sim — `README.md` (seção "Como a IA foi usada"), `docs/kiro-log.md`, `docs/validacao-sre.md` |
 
 Estados possíveis:
 
@@ -155,7 +153,7 @@ Os critérios específicos de aceitação e verificação deverão ser definidos
 4. O código e a infraestrutura devem ser revisados e verificados conforme os critérios de aceitação aplicáveis.
 5. O uso do Kiro deve ser acompanhado de revisão humana e registro das decisões relevantes.
 6. O grupo deve manter a documentação alinhada à implementação, evitando divergências entre requisitos, design, tarefas e código.
-7. Podem aprovar documentos e decisões: Joseph Roberto.
+7. Podem aprovar documentos e decisões: Diêgo.
 
 ## 11. Referências do projeto
 

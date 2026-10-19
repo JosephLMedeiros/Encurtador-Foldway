@@ -1,173 +1,118 @@
-# SDD Workflow — Instruções para o Kiro
+# Fluxo SDD — como o Kiro trabalha neste projeto
 
-## 1. Objetivo
+## 1. A ideia
 
-Este arquivo define como o Kiro deve conduzir o desenvolvimento do projeto utilizando Spec-Driven Development (SDD).
+Aqui a gente combina primeiro o que vai ser feito, numa spec, e só depois implementa. O Kiro ajuda a escrever as specs, propõe soluções, quebra o trabalho em tarefas e implementa. Quem decide e aprova é o grupo.
 
-O desenvolvimento deve ser guiado por requisitos documentados, decisões aprovadas, planejamento verificável e validação da implementação.
+## 2. Antes de começar qualquer coisa
 
-O Kiro é responsável por auxiliar na elaboração das especificações, propor soluções técnicas, decompor o trabalho e implementar tarefas. As decisões sobre o produto e a aprovação das etapas pertencem ao grupo.
+Leia o que for relevante para o pedido:
 
-## 2. Contexto do projeto
+- `SSOT.md`: escopo, requisitos do hackathon e a tabela de decisões (seção 8).
+- `.kiro/steering/product.md`, `tech.md` e `structure.md`.
+- As specs em `.kiro/specs/` que tocam no assunto:
+  - `01-backend-api`: a API em Python;
+  - `02-devops-gitops`: Kubernetes, pipeline e ArgoCD;
+  - `04-observabilidade`: métricas, traces e dashboard.
+- Os contratos: `openapi.yaml` e `docs/otel-metrics-spec.md`.
+- O código. As specs foram atualizadas para bater com ele, mas se encontrar diferença, avise em vez de escolher um lado sozinho.
 
-Antes de iniciar uma nova especificação ou modificar o código, consulte os documentos relevantes disponíveis no repositório:
+Se faltar uma informação que trava o trabalho, pergunte.
 
-- `SSOT.md`: referência geral do projeto, requisitos, restrições e decisões.
-- `.kiro/steering/product.md`: visão, objetivos e características do produto, quando disponível.
-- `.kiro/steering/tech.md`: tecnologias e restrições técnicas aprovadas, quando disponível.
-- `.kiro/steering/structure.md`: organização e convenções do repositório, quando disponível.
-- `.kiro/steering/sdd-workflow.md`: estas instruções.
-- Especificações existentes em `.kiro/specs/` que possam afetar o trabalho solicitado.
+## 3. As etapas
 
-Não presuma que documentos mencionados já existem. Consulte os arquivos disponíveis e solicite esclarecimentos caso a ausência de alguma informação impeça o trabalho.
+**Requisitos → Design → Tarefas → Implementação → Verificação**
 
-## 3. Fluxo obrigatório de desenvolvimento
+Uma etapa por vez. Não gere os três documentos de uma vez como se já estivessem aprovados, e não implemente antes de o plano estar aprovado.
 
-Siga esta sequência para cada especificação:
+### Requisitos
 
-**Requirements → Design → Tasks → Implementação → Verificações e revisão**
+1. Leia o SSOT e o contexto.
+2. Entenda o escopo, as dependências e as restrições.
+3. Proponha o `requirements.md`, com comportamentos e critérios de aceitação que dê para verificar.
+4. Liste ambiguidades, conflitos e decisões pendentes.
+5. Espere a aprovação.
 
-As etapas devem ocorrer progressivamente. Não gere todos os documentos como se estivessem automaticamente aprovados e não inicie a implementação antes da aprovação do plano correspondente pelo grupo.
+Não invente requisito. Sugestões opcionais vão separadas dos requisitos, marcadas como sugestão.
 
-### Etapa 1 — Requirements
+### Design
 
-Ao receber uma solicitação para iniciar uma Spec:
+Só depois dos requisitos aprovados. O `design.md` explica como cada requisito será atendido: componentes, fluxo de dados, contratos, modelo de dados, erros, configuração, testes e como se encaixa no que já existe.
 
-1. Consulte o SSOT e o contexto relevante.
-2. Identifique o escopo da funcionalidade, suas dependências e suas restrições.
-3. Elabore uma proposta de `requirements.md`.
-4. Descreva comportamentos esperados, regras de negócio e critérios de aceitação verificáveis.
-5. Identifique ambiguidades, conflitos e decisões pendentes.
-6. Apresente o documento para revisão e aguarde a aprovação do grupo.
+Respeite as decisões já tomadas. Se uma escolha importante estiver em aberto, mostre as alternativas e o que muda com cada uma, e deixe o grupo decidir.
 
-Não invente requisitos nem acrescente funcionalidades opcionais como se fossem obrigatórias. Quando necessário, apresente sugestões separadamente dos requisitos confirmados.
+### Tarefas
 
-### Etapa 2 — Design
+Só depois do design aprovado. As tarefas do `tasks.md` devem ser pequenas, ter uma verificação clara, seguir uma ordem que faça sentido e dizer quais podem andar em paralelo. Evite tarefa do tipo "implementar tudo".
 
-Somente após a aprovação dos requisitos, elabore uma proposta de `design.md`.
+### Implementação
 
-O documento deve explicar como os requisitos serão atendidos, considerando, conforme aplicável:
+Só tarefas aprovadas, de preferência uma por vez:
 
-- Arquitetura e responsabilidades dos componentes.
-- Fluxos de dados e comunicação.
-- Contratos entre frontend, API e banco de dados.
-- Modelo de dados e persistência.
-- Tratamento de erros e casos extremos.
-- Segurança, configuração e dependências.
-- Estratégia de verificações.
-- Integração com os componentes existentes.
+1. Releia a tarefa, os requisitos, o design e o código em volta.
+2. Confira se as dependências já estão prontas.
+3. Faça só o que a tarefa pede, sem mudanças de carona.
+4. Rode as verificações.
+5. Diga o que mudou, o resultado das verificações e o que ficou faltando.
 
-Respeite as tecnologias e decisões já aprovadas. Se houver decisões técnicas importantes em aberto, apresente alternativas e suas consequências, solicitando a decisão do grupo quando necessário.
+Código gerado não é tarefa concluída. Concluída é tarefa verificada.
 
-Apresente o design para revisão e aguarde a aprovação antes de elaborar o plano de tarefas.
+### Verificação
 
-### Etapa 3 — Tasks
+Confira a implementação contra os critérios de aceitação e o design. Rode o que der para rodar: pytest, testes e lint do frontend, `kubectl kustomize`, pipeline. O que não der para rodar no ambiente, diga que não rodou e o que falta validar.
 
-Somente após a aprovação do design, elabore uma proposta de `tasks.md`.
+Verificação manual também vale (pods saudáveis, trace no Tempo, painel no Grafana), desde que venha com a evidência.
 
-As tarefas devem:
+Nunca diga que algo foi verificado sem ter verificado.
 
-- Ser pequenas, claras e verificáveis.
-- Estar alinhadas aos requisitos e ao design aprovados.
-- Indicar dependências e uma ordem de execução coerente.
-- Identificar os componentes envolvidos quando isso ajudar na compreensão.
-- Incluir as verificações pertinentes, automatizadas ou manuais.
-- Evitar tarefas vagas ou que agrupem toda a implementação em uma única etapa.
+## 4. Decisões e aprovações
 
-Quando apropriado, indique quais tarefas podem ser executadas em paralelo sem comprometer as dependências.
+- Separe sempre o que está decidido, o que é proposta e o que está pendente.
+- Silêncio não é aprovação.
+- Recomendação sua não é decisão do grupo.
+- Não escolha em silêncio algo que depende de decisão pendente.
+- Não mude um requisito aprovado só para caber na implementação.
+- Não altere o SSOT ou outra spec sem avisar.
 
-Apresente o plano ao grupo e aguarde sua aprovação antes de iniciar a implementação.
+### Status dos documentos
 
-### Etapa 4 — Implementação
+Todo `requirements.md`, `design.md` e `tasks.md` começa com uma linha de status:
 
-Ao receber uma solicitação para executar tarefas aprovadas:
+- `Status: Rascunho`: em construção;
+- `Status: Em revisão`: apresentado ao grupo, esperando aprovação;
+- `Status: Aprovado em AAAA-MM-DD por <nome>`: aprovado.
 
-1. Consulte a tarefa, os requisitos, o design e o código existente.
-2. Verifique se as dependências necessárias foram atendidas.
-3. Implemente somente o escopo autorizado.
-4. Evite alterações não relacionadas e mudanças desnecessárias na arquitetura.
-5. Execute as verificações disponíveis.
-6. Informe os arquivos alterados, os resultados das verificações e os problemas restantes.
+Só o status `Aprovado` libera a próxima etapa. Documento novo começa como `Rascunho`. Status ausente ou fora desse formato conta como não aprovado.
 
-Não considere uma tarefa concluída apenas porque o código foi gerado. A conclusão deve refletir o resultado efetivamente verificado.
+Aprovação dita só na conversa não vale: o status precisa ser atualizado no arquivo antes de seguir. O Kiro não muda o status para aprovado por conta própria, e não inventa data nem nome de quem aprovou. Quem aprova documentos e decisões neste projeto é o Diêgo (SSOT, seção 10).
 
-### Etapa 5 — Verificações e revisão
+Se um documento aprovado mudar de forma relevante, ele volta para `Rascunho`.
 
-Verifique a implementação em relação aos critérios de aceitação e ao design aprovado.
+## 5. Impacto em outras partes
 
-Execute as verificações pertinentes sempre que o ambiente permitir. Se não for possível executá-las, explique a limitação e indique o que ainda precisa ser validado.
+Quase toda mudança mexe em mais de um lugar. Alguns exemplos deste projeto:
 
-As verificações podem ser automatizadas (como testes de código ou a execução do pipeline) ou manuais (como a conferência de probes, traces e dashboards). Em ambos os casos, o resultado deve ser informado com evidências.
+- mudou o contrato da API → `openapi.yaml`, `frontend/src/api/api.js`, testes da API e, se mexer em rota, o dashboard;
+- mudou ou criou uma métrica → `docs/otel-metrics-spec.md`, `api/tests/test_telemetry.py` e `kiro-portal.json`;
+- mudou porta, variável ou probe → manifests em `k8s/`, `docker-compose.yml` e README.
 
-Não afirme que verificações foram executadas ou aprovadas sem evidências correspondentes.
+Quando perceber um impacto, diga quais arquivos e specs são afetados, proponha as mudanças, espere a aprovação e confira tudo de novo depois.
 
-Se a implementação não atender à especificação, proponha e realize as correções autorizadas e repita as verificações pertinentes.
+## 6. Quando algo muda
 
-## 4. Regras para decisões e aprovações
+1. Entenda o que mudou e por quê.
+2. Veja o impacto.
+3. Atualize primeiro requisitos, design e tarefas.
+4. Espere a aprovação.
+5. Ajuste o código e rode as verificações de novo.
 
-Durante todas as etapas:
+Refatoração que não muda o comportamento não precisa refazer a spec, mas passa por revisão e testes.
 
-- Diferencie decisões aprovadas, propostas e pendentes.
-- Não interprete silêncio como aprovação.
-- Não trate recomendações próprias como decisões do grupo.
-- Não escolha silenciosamente tecnologias ou soluções que dependam de uma decisão pendente.
-- Apresente alternativas quando elas ajudarem o grupo a decidir.
-- Solicite esclarecimentos quando uma informação ausente bloquear uma decisão importante.
-- Não altere requisitos aprovados apenas para justificar uma implementação.
-- Não modifique o SSOT ou outras especificações silenciosamente.
+Se a implementação andar na frente da spec (aconteceu na troca de Node para Python), atualize a spec logo depois, descrevendo o que foi feito, e coloque o documento em `Em revisão` até o grupo aprovar.
 
-O Kiro pode sugerir alterações e explicar suas justificativas, mas deve identificar o que precisa ser aprovado antes de aplicá-las.
+## 7. Onde ficam as specs
 
-### Registro formal de aprovação
-
-A aprovação de cada documento deve ser registrada no próprio arquivo, por meio do campo `Status`.
-
-O Kiro só deve considerar um documento aprovado quando seu campo `Status` estiver preenchido no formato de aprovação definido na seção 7, contendo a data e o nome de quem aprovou.
-
-Confirmações feitas apenas na conversa não substituem o registro no documento. Se o grupo confirmar uma aprovação verbalmente ou pelo chat, o status deverá ser atualizado antes de o Kiro avançar para a próxima etapa.
-
-Se o status estiver como `Rascunho` ou `Em revisão`, ausente ou inválido, o documento deve ser tratado como não aprovado.
-
-O Kiro não deve alterar o status para aprovado por conta própria. A atualização deve refletir uma aprovação explícita de um integrante autorizado pela equipe.
-
-Se um documento aprovado sofrer alterações relevantes, seu status deverá voltar para `Rascunho` até que a nova versão seja revisada e aprovada.
-
-## 5. Consistência entre especificações
-
-Considere os impactos do trabalho sobre outras áreas do projeto.
-
-Por exemplo, alterações nos contratos da API podem afetar o frontend, as verificações, a instrumentação de observabilidade e os manifests do Kubernetes.
-
-Quando identificar impactos:
-
-1. Explique quais componentes e documentos podem ser afetados.
-2. Indique quais especificações precisam ser revisadas.
-3. Proponha as atualizações necessárias.
-4. Aguarde a aprovação das mudanças relevantes.
-5. Verifique a consistência da implementação após as alterações.
-
-Não modifique especificações não relacionadas sem necessidade.
-
-## 6. Tratamento de mudanças
-
-Quando houver uma mudança de requisito, arquitetura ou comportamento:
-
-1. Identifique a mudança solicitada.
-2. Avalie seus impactos.
-3. Indique os documentos e componentes afetados.
-4. Proponha a atualização dos requisitos, do design e das tarefas, conforme necessário.
-5. Aguarde a aprovação das mudanças relevantes.
-6. Ajuste a implementação e execute novamente as verificações pertinentes.
-
-Refatorações internas que não alterem o comportamento especificado podem seguir um processo proporcional à sua complexidade, sem exigir a recriação completa da Spec.
-
-## 7. Organização e manutenção dos documentos
-
-Mantenha as especificações em `.kiro/specs/`, organizadas por funcionalidade ou área de trabalho.
-
-Exemplo:
-
-```text
+```
 .kiro/
 ├── steering/
 │   ├── product.md
@@ -175,48 +120,26 @@ Exemplo:
 │   ├── structure.md
 │   └── sdd-workflow.md
 └── specs/
-    └── 01-api/
+    ├── 01-backend-api/
+    ├── 02-devops-gitops/
+    └── 04-observabilidade/
         ├── requirements.md
         ├── design.md
         └── tasks.md
 ```
 
-Adapte a estrutura às convenções existentes no repositório. Não crie arquivos ou diretórios desnecessários.
+Uma pasta por área, sempre com os três arquivos. Não crie arquivo ou pasta que ninguém pediu.
 
-Mantenha os documentos consistentes entre si e com o SSOT. Quando uma mudança aprovada afetar uma especificação, atualize os documentos correspondentes.
+## 8. Como responder
 
-### Campo de status das especificações
+No fim de uma etapa ou tarefa, diga em poucas linhas:
 
-Todos os arquivos de especificação (`requirements.md`, `design.md` e `tasks.md`) devem conter um campo `Status` no início do documento.
+- o que foi feito ou alterado;
+- o que continua pendente de decisão;
+- o que foi verificado e o resultado;
+- o que ainda tem problema;
+- o próximo passo que você sugere.
 
-Os formatos permitidos são:
+## 9. Resumindo
 
-- `Status: Rascunho`
-- `Status: Em revisão`
-- `Status: Aprovado em AAAA-MM-DD por <nome>`
-
-O status `Rascunho` indica que o documento ainda não foi aprovado. O status `Em revisão` indica que o documento foi apresentado à equipe e aguarda aprovação. O status `Aprovado` registra a aprovação formal do documento, e somente ele autoriza o avanço para a etapa seguinte.
-
-Documentos novos devem ser criados com `Status: Rascunho`.
-
-O Kiro deve preservar a data e o nome registrados, sem inventar informações de aprovação. Alterações que exijam nova aprovação devem retornar o documento para `Rascunho`.
-
-## 8. Comunicação dos resultados
-
-Ao concluir uma etapa ou tarefa, informe de forma objetiva:
-
-- O que foi produzido ou alterado.
-- Quais decisões ainda estão pendentes.
-- Quais verificações foram executadas e seus resultados.
-- Quais problemas ou limitações permanecem.
-- Qual é o próximo passo recomendado.
-
-Não declare uma etapa aprovada pelo grupo sem confirmação explícita.
-
-## 9. Princípio final
-
-O objetivo do SDD é manter uma ligação consistente entre as decisões do grupo, os requisitos, o design, as tarefas, o código e as verificações.
-
-Priorize clareza, rastreabilidade, mudanças controladas e documentação proporcional à complexidade do trabalho.
-
-O Kiro deve acelerar o desenvolvimento e ajudar a identificar problemas, sem substituir as decisões do grupo ou ocultar incertezas.
+O objetivo é manter ligados as decisões do grupo, a spec, o código e as verificações. Documentação na medida do trabalho: nada importante sem spec, e nada de papelada que ninguém lê. O Kiro acelera e ajuda a achar problemas, mas não decide pelo grupo nem esconde incerteza.
