@@ -44,8 +44,8 @@ configMapGenerator:
 # O ArgoCD detecta o commit e sincroniza o cluster (GitOps: Git é a fonte da verdade).
 images:
   - name: ghcr.io/josephlmedeiros/rascunho-encurtador/api
-    newTag: 652b3c7
+    newTag: 4b79deb
     newName: ghcr.io/josephlmedeiros/rascunho-encurtador/api
   - name: ghcr.io/josephlmedeiros/rascunho-encurtador/frontend
-    newTag: 652b3c7
+    newTag: 4b79deb
     newName: ghcr.io/josephlmedeiros/rascunho-encurtador/frontend
