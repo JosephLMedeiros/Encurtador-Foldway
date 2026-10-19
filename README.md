@@ -33,8 +33,8 @@ k8s/                 kustomize: app + observabilidade (ponto de entrada do ArgoC
   observability/     Collector, Tempo, Prometheus, Grafana, configs e dashboard
 argocd/              Application do ArgoCD
 .github/workflows/   ci-cd.yaml (testes API/frontend -> validação -> build/push GHCR -> commit da tag)
-scripts/             gerar-trafego.sh (demo) e kind-up.sh (cluster local)
-docs/                kiro-log.md (uso de IA), otel-metrics-spec.md (contrato de telemetria)
+scripts/             gerar-trafego.sh (demo), kind-up.sh (cluster local), argocd-up.sh e port-forward.sh
+docs/                kiro-log.md (uso de IA), otel-metrics-spec.md (contrato de telemetria), validacao-sre.md (relatório final para entrega)
 openapi.yaml         contrato da API
 SSOT.md              escopo, requisitos e decisões do grupo
 ```
