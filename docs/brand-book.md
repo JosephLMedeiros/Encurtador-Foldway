@@ -1,18 +1,18 @@
-# FURL — O ARTISTA DOS ATALHOS
+# Foldway — O ARTISTA DOS ATALHOS
 
 *Conceito de personagem, identidade visual e direção artística*
 
-*Versão revisada: os links são papéis brutos que Furl transforma em origamis e entrega por portais.*
+*Versão revisada: os links são papéis brutos que Foldway transforma em origamis e entrega por portais.*
 
 ## 1. Conceito geral
 
-Furl é um artista itinerante e mensageiro dimensional capaz de manipular distâncias por meio de dobras espaciais. Para ele, o espaço não é uma extensão imutável, mas uma superfície maleável, semelhante a uma folha de papel. Com gestos precisos, ele aproxima lugares distantes, dobra trajetos impossíveis e cria passagens instantâneas entre dois pontos.
+Foldway é um artista itinerante e mensageiro dimensional capaz de manipular distâncias por meio de dobras espaciais. Para ele, o espaço não é uma extensão imutável, mas uma superfície maleável, semelhante a uma folha de papel. Com gestos precisos, ele aproxima lugares distantes, dobra trajetos impossíveis e cria passagens instantâneas entre dois pontos.
 
-O trabalho de Furl é receber **papéis brutos** e transformá-los em **origamis**. Cada papel bruto é um caminho longo demais: uma folha cheia de texto, sem forma, difícil de carregar. Furl o estica, o dobra com precisão e o transforma em um origami pequeno, leve e fácil de compartilhar. Quando alguém precisa chegar ao destino, Furl **entrega o origami por um portal**.
+O trabalho de Foldway é receber **papéis brutos** e transformá-los em **origamis**. Cada papel bruto é um caminho longo demais: uma folha cheia de texto, sem forma, difícil de carregar. Foldway o estica, o dobra com precisão e o transforma em um origami pequeno, leve e fácil de compartilhar. Quando alguém precisa chegar ao destino, Foldway **entrega o origami por um portal**.
 
-Seu poder se manifesta por meio de um cachecol encantado, um objeto extraordinariamente longo que acompanha seus gestos como uma extensão do corpo. Branco como papel e marcado por vincos e planos, ele lembra um grande origami que se enrola ao redor do pescoço e se desdobra no ar. Feito de um material especial que pode se desfazer em fragmentos de papel, o cachecol é a ferramenta com que Furl abre portais e a expressão mais visível de sua magia.
+Seu poder se manifesta por meio de um cachecol encantado, um objeto extraordinariamente longo que acompanha seus gestos como uma extensão do corpo. Branco como papel e marcado por vincos e planos, ele lembra um grande origami que se enrola ao redor do pescoço e se desdobra no ar. Feito de um material especial que pode se desfazer em fragmentos de papel, o cachecol é a ferramenta com que Foldway abre portais e a expressão mais visível de sua magia.
 
-Furl combina a elegância de um artista de rua, a engenhosidade de um inventor e a confiança de um ilusionista que conhece um truque que ninguém mais consegue reproduzir. Sua aparência é humana, mas seus movimentos e sua relação com o espaço revelam que ele opera segundo regras próprias.
+Foldway combina a elegância de um artista de rua, a engenhosidade de um inventor e a confiança de um ilusionista que conhece um truque que ninguém mais consegue reproduzir. Sua aparência é humana, mas seus movimentos e sua relação com o espaço revelam que ele opera segundo regras próprias.
 
 A ideia central do personagem é simples: **não é necessário percorrer um caminho inteiro quando é possível dobrá-lo.**
 
@@ -32,7 +32,7 @@ O papel bruto (kraft) nunca deve se parecer com o origami (coral), e nenhum dos 
 
 ## 2. Aparência física e silhueta
 
-Furl é um jovem adulto de corpo esguio e proporções alongadas, com braços e pernas compridos que acentuam sua aparência ágil. Sua postura é relaxada, quase despreocupada, como a de alguém que nunca precisa se apressar porque sempre conhece um caminho mais rápido.
+Foldway é um jovem adulto de corpo esguio e proporções alongadas, com braços e pernas compridos que acentuam sua aparência ágil. Sua postura é relaxada, quase despreocupada, como a de alguém que nunca precisa se apressar porque sempre conhece um caminho mais rápido.
 
 Ele costuma apoiar o peso em uma perna, inclinar ligeiramente o tronco ou gesticular com uma das mãos enquanto a outra permanece próxima ao cachecol. Seus movimentos possuem um componente teatral: mesmo ações simples, como ajustar uma luva ou estender os dedos, parecem fazer parte de uma apresentação.
 
@@ -40,17 +40,17 @@ Sua silhueta é assimétrica e facilmente reconhecível. O corpo apresenta linha
 
 Essa diferença é essencial para a leitura visual do personagem. Mesmo visto de longe, deve ser possível reconhecê-lo pela combinação de sua figura esguia, das roupas de artista itinerante e da longa faixa branca, vincada como um grande origami, que serpenteia ao seu redor.
 
-A aparência geral deve equilibrar elementos humanos e fantásticos. Furl não é uma criatura inteiramente feita de papel nem um mago coberto por ornamentos excessivos. Ele parece uma pessoa que escolheu roupas elegantes e funcionais, mas cujo acessório mais característico não obedece às leis comuns da matéria.
+A aparência geral deve equilibrar elementos humanos e fantásticos. Foldway não é uma criatura inteiramente feita de papel nem um mago coberto por ornamentos excessivos. Ele parece uma pessoa que escolheu roupas elegantes e funcionais, mas cujo acessório mais característico não obedece às leis comuns da matéria.
 
 ## 3. Rosto, cabelo e expressão
 
 Seu rosto possui traços delicados, mas expressivos, com olhos atentos que sugerem curiosidade e inteligência. Sua expressão habitual é um sorriso discreto, ligeiramente convencido, de alguém que acabou de perceber algo que os outros ainda não notaram.
 
-Furl tem pele clara, de subtom neutro a quente. O rosto contrasta bem com o cabelo escuro e com o índigo do traje, e ganha sombras suaves sob a luz do cachecol branco.
+Foldway tem pele clara, de subtom neutro a quente. O rosto contrasta bem com o cabelo escuro e com o índigo do traje, e ganha sombras suaves sob a luz do cachecol branco.
 
-O cabelo é escuro, volumoso e levemente desalinhado, com mechas que parecem ter sido movimentadas pelo vento. O corte é prático, mas não perfeitamente arrumado. Algumas pontas se projetam em direções diferentes, reforçando a impressão de que Furl está sempre em movimento, mesmo quando permanece parado.
+O cabelo é escuro, volumoso e levemente desalinhado, com mechas que parecem ter sido movimentadas pelo vento. O corte é prático, mas não perfeitamente arrumado. Algumas pontas se projetam em direções diferentes, reforçando a impressão de que Foldway está sempre em movimento, mesmo quando permanece parado.
 
-Seus olhos podem apresentar uma coloração natural, como castanho ou cinza-azulado, com um brilho ciano muito sutil quando ele utiliza seus poderes. Esse brilho não deve permanecer constantemente aceso: ele surge apenas quando Furl percebe uma rota, prepara uma dobra ou abre uma passagem dimensional.
+Seus olhos podem apresentar uma coloração natural, como castanho ou cinza-azulado, com um brilho ciano muito sutil quando ele utiliza seus poderes. Esse brilho não deve permanecer constantemente aceso: ele surge apenas quando Foldway percebe uma rota, prepara uma dobra ou abre uma passagem dimensional.
 
 A expressão facial é importante para preservar o charme do personagem. Ele não deve parecer constantemente ameaçador, sério ou excessivamente misterioso. Sua confiança é mais próxima da de um artista que sabe exatamente quando revelar o truque.
 
@@ -58,7 +58,7 @@ Em situações comuns, apresenta uma expressão tranquila e um pouco brincalhona
 
 ## 4. Vestuário: o artista itinerante
 
-O traje de Furl combina alfaiataria, roupas de viagem e pequenos detalhes que sugerem uma profissão incomum. Ele deve parecer elegante sem ser formal demais, prático sem perder a excentricidade e fantástico sem depender de uma armadura ou de vestimentas tradicionais de mago.
+O traje de Foldway combina alfaiataria, roupas de viagem e pequenos detalhes que sugerem uma profissão incomum. Ele deve parecer elegante sem ser formal demais, prático sem perder a excentricidade e fantástico sem depender de uma armadura ou de vestimentas tradicionais de mago.
 
 ### Camisa
 
@@ -68,11 +68,11 @@ O tecido apresenta pequenas marcas de uso, vincos naturais e sombras que o torna
 
 ### Colete e acessórios de torso
 
-Sobre a camisa, Furl pode usar um colete em índigo-noite desgastado, com corte assimétrico e poucos botões metálicos. O colete reforça a aparência de artista e cria camadas de tom com a camisa.
+Sobre a camisa, Foldway pode usar um colete em índigo-noite desgastado, com corte assimétrico e poucos botões metálicos. O colete reforça a aparência de artista e cria camadas de tom com a camisa.
 
 Pequenas tiras de couro, presilhas e bolsos discretos podem ser incorporados ao traje, especialmente na cintura. Eles servem para carregar pedaços de papel, ferramentas de desenho, pequenas peças metálicas e seu instrumento de navegação.
 
-Os acessórios devem parecer funcionais. Nada precisa estar ali apenas para preencher espaço: cada elemento sugere que Furl prepara, calcula ou registra os caminhos que percorre.
+Os acessórios devem parecer funcionais. Nada precisa estar ali apenas para preencher espaço: cada elemento sugere que Foldway prepara, calcula ou registra os caminhos que percorre.
 
 ### Calças e botas
 
@@ -84,17 +84,17 @@ O traje inferior permanece visualmente simples para equilibrar o cachecol e os e
 
 ### Luvas assimétricas
 
-Furl usa luvas diferentes em cada mão.
+Foldway usa luvas diferentes em cada mão.
 
 Uma delas é relativamente leve, com os dedos livres ou parcialmente descobertos, permitindo manipular pequenos pedaços de papel com precisão. A outra apresenta placas geométricas discretas, pequenas peças metálicas e reforços nos nós dos dedos.
 
 Esses detalhes não funcionam como uma armadura. Eles lembram instrumentos de precisão utilizados por alguém que trabalha com mecanismos delicados.
 
-Quando Furl manipula uma dobra espacial, linhas luminosas percorrem os dedos e as juntas da luva mais elaborada. Os movimentos de suas mãos parecem orientar os vincos no ar, como se ele estivesse dobrando uma folha invisível.
+Quando Foldway manipula uma dobra espacial, linhas luminosas percorrem os dedos e as juntas da luva mais elaborada. Os movimentos de suas mãos parecem orientar os vincos no ar, como se ele estivesse dobrando uma folha invisível.
 
 ## 5. O cachecol encantado
 
-O cachecol é o elemento mais importante do design e a principal assinatura visual de Furl.
+O cachecol é o elemento mais importante do design e a principal assinatura visual de Foldway.
 
 Ele é extraordinariamente longo, ultrapassando a altura do personagem por uma distância considerável. Mesmo quando está enrolado ao redor do pescoço, uma grande parte permanece livre, flutuando atrás dele e descrevendo curvas amplas.
 
@@ -104,15 +104,15 @@ As bordas são vincadas e levemente irregulares, e os planos do cachecol seguem 
 
 Em seu estado normal, ele se comporta como uma faixa longa de papel dobrado, porém flexível. Pode balançar com o vento, repousar sobre os ombros ou acompanhar os movimentos do corpo, com os vincos se abrindo e fechando como um acordeão. Suas pontas frequentemente se movem alguns instantes depois do restante do tecido, como se ainda estivessem terminando o gesto anterior.
 
-O cachecol não é apenas uma roupa. Ele funciona como extensão dos gestos do personagem, ferramenta para construir portais e meio de manifestação dos poderes dimensionais. Ele não é um ser vivo nem possui vontade própria: seu movimento sempre nasce de um gesto de Furl.
+O cachecol não é apenas uma roupa. Ele funciona como extensão dos gestos do personagem, ferramenta para construir portais e meio de manifestação dos poderes dimensionais. Ele não é um ser vivo nem possui vontade própria: seu movimento sempre nasce de um gesto de Foldway.
 
 ### A transformação em papel
 
-Quando Furl ativa sua magia, o cachecol começa a se desfazer pelas extremidades.
+Quando Foldway ativa sua magia, o cachecol começa a se desfazer pelas extremidades.
 
 O cachecol se separa em pequenas placas, tiras e fragmentos geométricos, que permanecem suspensos no ar. Em vez de simplesmente se dissolverem em partículas luminosas, os fragmentos conservam a aparência física de papel: possuem espessura, bordas, vincos e superfícies capazes de refletir a luz.
 
-Esses fragmentos são a matéria dos portais. Eles se alinham, giram e se encaixam até formar a estrutura de uma passagem. Alguns podem se dobrar em pequenas setas ou pássaros, que funcionam como sondas e percorrem o trajeto antes de Furl atravessá-lo.
+Esses fragmentos são a matéria dos portais. Eles se alinham, giram e se encaixam até formar a estrutura de uma passagem. Alguns podem se dobrar em pequenas setas ou pássaros, que funcionam como sondas e percorrem o trajeto antes de Foldway atravessá-lo.
 
 A transformação deve parecer precisa, quase coreografada. Os fragmentos não explodem aleatoriamente; eles se separam, giram, alinham suas bordas e formam vincos até adquirirem novas formas.
 
@@ -120,29 +120,29 @@ Quando o efeito termina, os fragmentos retornam ao cachecol. Eles se desfazem em
 
 O efeito visual mais marcante acontece quando uma longa faixa de tecido se desfaz em dezenas de fragmentos que se organizam, em sequência, na estrutura de um portal.
 
-Os origamis que Furl entrega não vêm do cachecol. Eles nascem dos papéis brutos, que chegam até ele já carregando o caminho que precisa ser dobrado.
+Os origamis que Foldway entrega não vêm do cachecol. Eles nascem dos papéis brutos, que chegam até ele já carregando o caminho que precisa ser dobrado.
 
 ## 6. O instrumento de navegação dimensional
 
-Preso ao cinto, Furl carrega um pequeno instrumento que mistura as formas de uma bússola, um astrolábio e um relógio de bolso.
+Preso ao cinto, Foldway carrega um pequeno instrumento que mistura as formas de uma bússola, um astrolábio e um relógio de bolso.
 
 Sua estrutura é feita de latão envelhecido, com anéis concêntricos, pequenas marcações e símbolos geométricos gravados na superfície. No centro existe uma peça móvel que lembra um ponteiro, uma agulha ou uma pequena dobradura metálica.
 
-O instrumento não serve para medir o tempo convencional. Sua função é ajudar Furl a identificar destinos, calcular distâncias e encontrar pontos que possam ser conectados por uma dobra espacial.
+O instrumento não serve para medir o tempo convencional. Sua função é ajudar Foldway a identificar destinos, calcular distâncias e encontrar pontos que possam ser conectados por uma dobra espacial.
 
-Quando está inativo, parece um objeto antigo, cuidadosamente conservado, mas marcado pelo uso. Quando Furl procura uma rota, os anéis começam a girar, o ponteiro se orienta e linhas de luz ciano percorrem as gravações.
+Quando está inativo, parece um objeto antigo, cuidadosamente conservado, mas marcado pelo uso. Quando Foldway procura uma rota, os anéis começam a girar, o ponteiro se orienta e linhas de luz ciano percorrem as gravações.
 
 Ele pode segurar o instrumento na palma da mão para estudar um destino, girá-lo entre os dedos durante uma conversa ou utilizá-lo como foco para abrir uma passagem mais complexa.
 
-Esse acessório acrescenta uma camada narrativa ao personagem. Ele sugere que seus poderes não dependem apenas de força ou velocidade: existe conhecimento, técnica e preparação por trás de cada atalho. É por ele que Furl lê o destino de cada papel bruto antes de dobrá-lo.
+Esse acessório acrescenta uma camada narrativa ao personagem. Ele sugere que seus poderes não dependem apenas de força ou velocidade: existe conhecimento, técnica e preparação por trás de cada atalho. É por ele que Foldway lê o destino de cada papel bruto antes de dobrá-lo.
 
 ## 7. A magia: papel, dobras e relâmpagos
 
-A magia de Furl deve possuir uma linguagem visual única, baseada em três elementos complementares: geometria, papel e energia elétrica.
+A magia de Foldway deve possuir uma linguagem visual única, baseada em três elementos complementares: geometria, papel e energia elétrica.
 
 ### Geometria
 
-As dobras são representadas por linhas retas, ângulos definidos e planos que se encontram em pontos impossíveis. Quando Furl altera o espaço, o ambiente parece adquirir vincos invisíveis.
+As dobras são representadas por linhas retas, ângulos definidos e planos que se encontram em pontos impossíveis. Quando Foldway altera o espaço, o ambiente parece adquirir vincos invisíveis.
 
 Uma linha pode surgir no ar, dobrar-se em um ângulo abrupto e conectar dois pontos que normalmente estariam separados. Superfícies parecem deslizar umas sobre as outras, como as faces de um poliedro sendo reorganizadas.
 
@@ -150,9 +150,9 @@ Esses efeitos devem lembrar uma construção tridimensional feita a partir de um
 
 ### Papel
 
-O papel é a manifestação física da magia e também a matéria-prima do trabalho de Furl: ele chega bruto, é dobrado e parte como origami.
+O papel é a manifestação física da magia e também a matéria-prima do trabalho de Foldway: ele chega bruto, é dobrado e parte como origami.
 
-Os fragmentos do cachecol podem atuar como pequenas sondas, percorrendo trajetos antes de Furl atravessá-los. Podem se organizar para indicar uma direção, formar uma passagem ou desenhar no ar a geometria de um caminho.
+Os fragmentos do cachecol podem atuar como pequenas sondas, percorrendo trajetos antes de Foldway atravessá-los. Podem se organizar para indicar uma direção, formar uma passagem ou desenhar no ar a geometria de um caminho.
 
 Cada origami possui uma aparência deliberada. Seus vincos são nítidos, suas formas são reconhecíveis e suas superfícies respondem à iluminação como papel verdadeiro.
 
@@ -168,7 +168,7 @@ A intensidade dos relâmpagos acompanha o ritmo do trabalho. Quando poucos papé
 
 ## 8. Portais: passagens feitas de papel
 
-Os portais de Furl são diferentes dos portais circulares convencionais, e existem para um propósito: entregar um origami ao seu destino.
+Os portais de Foldway são diferentes dos portais circulares convencionais, e existem para um propósito: entregar um origami ao seu destino.
 
 Para abrir uma passagem, ele lança fragmentos do cachecol ao redor de um ponto no espaço. As peças giram, alinham-se e se dobram, formando um anel composto por planos geométricos.
 
@@ -178,15 +178,15 @@ Quando a passagem se estabiliza, os fragmentos revelam uma abertura dimensional.
 
 Linhas ciano percorrem o contorno do portal, enquanto pequenos pedaços de papel orbitam a abertura. A energia se concentra nos pontos onde as peças se encontram, deixando visíveis as junções da estrutura.
 
-Furl entrega os origamis pelo portal de duas maneiras: lançando a figura em direção à abertura ou conduzindo-a com um gesto da mão até que atravesse. Do outro lado, o origami chega ao destino do papel bruto que lhe deu origem. Cada portal leva a um único lugar.
+Foldway entrega os origamis pelo portal de duas maneiras: lançando a figura em direção à abertura ou conduzindo-a com um gesto da mão até que atravesse. Do outro lado, o origami chega ao destino do papel bruto que lhe deu origem. Cada portal leva a um único lugar.
 
-Furl pode abrir portais com gestos das mãos ou com movimentos do cachecol. Para portais pequenos, bastam alguns fragmentos. Para passagens maiores, o cachecol inteiro pode se desfazer em uma longa corrente de papel, formando uma estrutura muito mais elaborada.
+Foldway pode abrir portais com gestos das mãos ou com movimentos do cachecol. Para portais pequenos, bastam alguns fragmentos. Para passagens maiores, o cachecol inteiro pode se desfazer em uma longa corrente de papel, formando uma estrutura muito mais elaborada.
 
 O resultado deve transmitir a sensação de que o personagem não criou uma porta do nada. Ele construiu uma conexão dobrando a distância entre dois lugares.
 
 ## 9. Movimento e velocidade
 
-Furl não se comporta como um velocista convencional. Seu movimento é baseado em atalhos, deslocamentos abruptos e mudanças inesperadas de posição.
+Foldway não se comporta como um velocista convencional. Seu movimento é baseado em atalhos, deslocamentos abruptos e mudanças inesperadas de posição.
 
 Ele pode caminhar tranquilamente e, no instante seguinte, atravessar um pequeno portal e aparecer alguns metros adiante. Pode inclinar o corpo como se fosse dar um passo e, em vez disso, dobrar o espaço sob seus pés.
 
@@ -196,11 +196,11 @@ Em movimentos mais rápidos, a silhueta do personagem pode parecer se dividir em
 
 Ele também pode utilizar pequenos portais para redirecionar o próprio impulso. Um salto curto se transforma em uma travessia longa, e uma queda pode terminar em uma passagem lateral que o deposita em segurança.
 
-Seu estilo de movimento combina elegância e imprevisibilidade. Furl raramente precisa correr em linha reta. Ele muda de direção, desaparece por uma abertura estreita e reaparece em uma posição que parece ter sido escolhida antes mesmo de iniciar o movimento.
+Seu estilo de movimento combina elegância e imprevisibilidade. Foldway raramente precisa correr em linha reta. Ele muda de direção, desaparece por uma abertura estreita e reaparece em uma posição que parece ter sido escolhida antes mesmo de iniciar o movimento.
 
 ## 10. Personalidade e linguagem corporal
 
-Furl é charmoso, ágil, observador e ligeiramente convencido. Ele gosta de apresentar suas habilidades como se fossem truques de palco, mesmo quando está realizando algo que desafia completamente a lógica.
+Foldway é charmoso, ágil, observador e ligeiramente convencido. Ele gosta de apresentar suas habilidades como se fossem truques de palco, mesmo quando está realizando algo que desafia completamente a lógica.
 
 Tem o hábito de gesticular enquanto fala, girar pequenos objetos entre os dedos e ajustar o cachecol como se estivesse se preparando para uma apresentação. Quando alguém explica que um destino é distante demais, sua reação habitual é um sorriso discreto.
 
@@ -257,14 +257,14 @@ O resultado pretendido é um personagem elegante, um pouco excêntrico e visualm
 
 ## 13. Aplicação no encurtador de URLs
 
-A relação entre Furl e o produto deve ser compreensível mesmo para alguém que nunca ouviu falar da história do personagem. No mundo de Furl, cada URL é um papel bruto, cada link curto é um origami e cada acesso é uma entrega por portal.
+A relação entre Foldway e o produto deve ser compreensível mesmo para alguém que nunca ouviu falar da história do personagem. No mundo de Foldway, cada URL é um papel bruto, cada link curto é um origami e cada acesso é uma entrega por portal.
 
 ### A sequência principal
 
 1. **Chegada do papel bruto.** Quando o usuário insere uma URL longa, um papel bruto surge na tela, impresso com o endereço completo: cru, sem forma e comprido demais.
-2. **Dobra.** Furl segura uma extremidade, puxa a outra e executa uma sequência rápida de dobras, comprimindo o papel até transformá-lo em um origami compacto, com o código curto gravado na figura.
+2. **Dobra.** Foldway segura uma extremidade, puxa a outra e executa uma sequência rápida de dobras, comprimindo o papel até transformá-lo em um origami compacto, com o código curto gravado na figura.
 3. **Entrega ao usuário.** O origami é o link encurtado. Ele conserva a conexão com o endereço original, mas agora pode ser carregado, copiado e compartilhado com facilidade.
-4. **Entrega ao destino.** Quando alguém acessa o link curto, Furl abre um portal com fragmentos do cachecol e entrega o origami por ele. A passagem leva ao endereço original, se fecha logo depois, e os fragmentos retornam ao cachecol.
+4. **Entrega ao destino.** Quando alguém acessa o link curto, Foldway abre um portal com fragmentos do cachecol e entrega o origami por ele. A passagem leva ao endereço original, se fecha logo depois, e os fragmentos retornam ao cachecol.
 
 Essa sequência transforma uma operação técnica em uma ação visual intuitiva: um caminho longo é dobrado, transformado e entregue ao seu destino.
 
@@ -288,7 +288,7 @@ O mesmo vocabulário visual aparece em outros estados:
 
 ## 14. Frases e identidade narrativa
 
-Furl fala como alguém que transforma tarefas comuns em pequenas apresentações. Suas frases são curtas, confiantes e levemente brincalhonas.
+Foldway fala como alguém que transforma tarefas comuns em pequenas apresentações. Suas frases são curtas, confiantes e levemente brincalhonas.
 
 Alguns exemplos:
 
@@ -310,11 +310,11 @@ Frases por situação:
 - **Link inexistente:** “Esse origami não encontrou destino. O papel foi rasgado ou nunca existiu.”
 - **Link expirado:** “Este origami já foi desdobrado. O prazo acabou.”
 
-Essas frases reforçam o tema sem tornar o personagem excessivamente falante. O ideal é que ele tenha uma presença marcante, mas que a interface continue sendo a protagonista da experiência. Em mensagens de erro, o tom de Furl nunca deve esconder a informação: a mensagem precisa dizer com clareza o que aconteceu.
+Essas frases reforçam o tema sem tornar o personagem excessivamente falante. O ideal é que ele tenha uma presença marcante, mas que a interface continue sendo a protagonista da experiência. Em mensagens de erro, o tom de Foldway nunca deve esconder a informação: a mensagem precisa dizer com clareza o que aconteceu.
 
 ## 15. Resumo visual
 
-Furl é um artista itinerante de aparência humana, esguia e elegante, de pele clara e cabelo escuro e volumoso, que veste uma camisa azul-ardósia, colete índigo, luvas assimétricas e botas de couro. Sua expressão transmite inteligência, tranquilidade e uma confiança brincalhona.
+Foldway é um artista itinerante de aparência humana, esguia e elegante, de pele clara e cabelo escuro e volumoso, que veste uma camisa azul-ardósia, colete índigo, luvas assimétricas e botas de couro. Sua expressão transmite inteligência, tranquilidade e uma confiança brincalhona.
 
 Seu elemento mais característico é um cachecol branco extraordinariamente longo, dobrado como um grande origami, com vincos, facetas e sombras marcadas. O cachecol flutua ao seu redor e pode se desfazer em fragmentos de papel, que formam os portais.
 
@@ -322,4 +322,4 @@ Seu trabalho é receber papéis brutos, os links longos, e dobrá-los até virar
 
 Sua personalidade combina o charme de um ilusionista, a curiosidade de um explorador e a precisão de um artesão. Ele não precisa ser o personagem mais forte ou mais rápido de seu mundo: sua especialidade é encontrar uma maneira mais inteligente de chegar ao destino.
 
-**Furl não vence a distância. Ele a dobra.**
+**Foldway não vence a distância. Ele a dobra.**
