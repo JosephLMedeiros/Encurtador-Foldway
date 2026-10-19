@@ -1,910 +1,398 @@
-﻿# Design Document — Backend API
+﻿Status: Reconciliado com a implementação em 18/10/2026 (escrito após a implementação)
 
-## Overview
+# Design Document — Backend API
 
-A API do encurtador de links é o componente central da aplicação. Ela é responsável por criar códigos curtos, redirecionar usuários, persistir os dados no PostgreSQL, expor métricas para o Prometheus e propagar traces distribuídos via OpenTelemetry.
-
-O serviço será implementado em **Node.js LTS** com **TypeScript**, utilizando **Fastify** como framework HTTP (justificativa na seção de Componentes). O código ficará no diretório `api/` do monorepo.
-
-A arquitetura segue uma separação em camadas — rotas → serviços → repositórios → banco — com um módulo de telemetria desacoplado que é inicializado antes de qualquer outro componente.
-
-### Decisões técnicas propostas
-
-As decisões abaixo ainda estão **Pendentes** no SSOT e são tratadas como **propostas** neste documento. Nenhuma delas deve ser considerada definitiva sem confirmação da equipe.
-
-| Decisão | Proposta | ID SSOT | Justificativa resumida |
-|---|---|---|---|
-| Linguagem e framework da API (D-03) | Node.js LTS + TypeScript + Fastify | D-03 | Performance superior ao Express em benchmarks; suporte nativo a async/await; plugin oficial de OpenTelemetry (`@opentelemetry/instrumentation-fastify`); tipagem estática reduz bugs de contrato. |
-| Banco de dados (D-05) | PostgreSQL com driver `pg` + pool nativo | D-05 | Já definido pelos contratos `db-schema.sql` e `openapi.yaml`; driver maduro com suporte a pool configurável. |
-| Formato do código curto (D-06) | 7 caracteres, alfabeto `[a-z0-9]`, nanoid | D-06 | Espaço de `36^7 ≈ 78 bilhões` de combinações; nanoid é URL-safe e criptograficamente seguro. |
+Este documento descreve a implementação real da API, conforme encontrada no repositório. Toda afirmação cita o arquivo que a comprova. O plano original (Node.js/Fastify/TypeScript) está preservado na seção final.
 
 ---
 
-## Architecture
+## 1. Visão geral
 
-A API segue uma arquitetura em camadas, sem dependências circulares:
+A API é um serviço Python 3.12 com FastAPI, responsável por criar códigos curtos, redirecionar usuários, persistir dados no PostgreSQL, expor métricas para o Prometheus e propagar traces via OpenTelemetry.
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  server.ts  ← entry point                                       │
-│  1. initTelemetry()    ← DEVE ser o primeiro import/chamada     │
-│  2. buildApp()         ← cria instância Fastify + registra rotas│
-│  3. app.listen()       ← abre o servidor HTTP                   │
-└─────────────────────────────────────────────────────────────────┘
-             │
-             ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  app.ts  ← composição da aplicação Fastify                      │
-│  - Registra plugins (cors, helmet, etc.)                        │
-│  - Monta rotas em /api/links, /{shortCode}, /healthz, etc.      │
-└─────────────────────────────────────────────────────────────────┘
-             │
-             ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  routes/  ← handlers HTTP (validação de schema, resposta HTTP)  │
-│  - Delegam lógica para services/                                │
-│  - Não acessam o banco diretamente                              │
-└─────────────────────────────────────────────────────────────────┘
-             │
-             ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  services/  ← lógica de negócio                                 │
-│  - shortenService    (criação de links)                         │
-│  - redirectService   (redirecionamento + cache)                 │
-│  - statsService      (consulta de estatísticas)                 │
-│  - listService       (listagem paginada)                        │
-└─────────────────────────────────────────────────────────────────┘
-             │
-             ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  db/  ← acesso a dados                                          │
-│  - pool.ts            (pool de conexões pg)                     │
-│  - linksRepository.ts (CRUD + view active_links)                │
-│  - clicksRepository.ts (inserção assíncrona de click_events)    │
-└─────────────────────────────────────────────────────────────────┘
-             │
-             ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  PostgreSQL  ← banco de dados                                   │
-│  - tabela links                                                 │
-│  - tabela click_events                                          │
-│  - view active_links                                            │
-└─────────────────────────────────────────────────────────────────┘
-
-Módulo transversal (não tem dependência de nenhuma camada acima):
-┌─────────────────────────────────────────────────────────────────┐
-│  telemetry/  ← OpenTelemetry SDK                                │
-│  - Inicializa SDK antes do servidor HTTP                        │
-│  - Expõe interface própria (Counter, Histogram, Gauge)          │
-│  - Nenhum módulo importa o SDK OTel diretamente                 │
-└─────────────────────────────────────────────────────────────────┘
-
-Módulo transversal:
-┌─────────────────────────────────────────────────────────────────┐
-│  cache/  ← Cache-Aside em memória                               │
-│  - Wrapper sobre lru-cache (node-lru-cache)                     │
-│  - Utilizado por redirectService                                │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### Justificativa do framework: Fastify vs Express
-
-| Critério | Fastify | Express |
-|---|---|---|
-| Performance (req/s) | ~65 000 req/s (v4) | ~35 000 req/s |
-| TypeScript nativo | Sim (tipos oficiais) | Parcial (@types/express) |
-| Validação de schema | JSON Schema nativo (ajv) | Manual ou middleware |
-| Instrumentação OTel | Plugin oficial disponível | Plugin disponível |
-| Maturidade | Alta (v5 LTS) | Muito alta |
-| Ecossistema | Crescente | Muito amplo |
-
-A escolha pelo Fastify se deve principalmente ao suporte nativo a JSON Schema para validação de entrada (reduz código de validação manual), melhor performance e tipagem TypeScript de primeira classe. Qualquer um dos dois atende os requisitos do hackathon; se a equipe preferir Express por familiaridade, o impacto é mínimo — apenas os trechos de plugin e schema precisariam ser adaptados.
-
-**Esta escolha está sujeita à decisão D-03.**
+**Stack real** (`api/requirements.txt`):
+- `fastapi==0.143.3` + `uvicorn[standard]==0.54.0`
+- `psycopg[binary,pool]==3.3.6` + `psycopg-pool==3.3.3`
+- `opentelemetry-sdk==1.45.1` + exporters e instrumentações OTel
+- `prometheus-client==0.26.0`
 
 ---
 
-## Components and Interfaces
+## 2. Arquitetura
 
-### Estrutura de diretórios
+A API segue uma separação em camadas sem dependências circulares:
+
+```
+api/app/main.py          ← create_app() + lifespan + rotas
+api/app/config.py        ← leitura de variáveis de ambiente (Settings dataclass)
+api/app/db.py            ← pool de conexões, wait_for_database(), migrate()
+api/app/repository.py    ← LinkRepository (todo o SQL)
+api/app/shortcode.py     ← geração e validação de códigos e URLs
+api/app/telemetry.py     ← módulo único de OTel (métricas + traces)
+api/app/schema.sql       ← DDL (tabelas, view active_links, índices)
+```
+
+Não há camada de serviços separada dos handlers: a lógica de negócio está diretamente nos handlers do `main.py`. Não há cache em memória.
+
+---
+
+## 3. Estrutura de arquivos
 
 ```
 api/
-├── src/
-│   ├── telemetry/
-│   │   ├── index.ts          # initTelemetry() + exporta interface de instrumentos
-│   │   ├── sdk.ts            # configuração do NodeSDK OTel
-│   │   └── instruments.ts    # Counter, Histogram, Gauge observável
-│   ├── db/
-│   │   ├── pool.ts           # pg.Pool configurado por variáveis de ambiente
-│   │   ├── linksRepository.ts
-│   │   └── clicksRepository.ts
-│   ├── cache/
-│   │   └── redirectCache.ts  # wrapper lru-cache com lógica de TTL
-│   ├── services/
-│   │   ├── shortenService.ts
-│   │   ├── redirectService.ts
-│   │   ├── statsService.ts
-│   │   └── listService.ts
-│   ├── routes/
-│   │   ├── links.ts          # POST /api/links, GET /api/links
-│   │   ├── redirect.ts       # GET /{shortCode}
-│   │   ├── stats.ts          # GET /api/links/:shortCode/stats
-│   │   └── health.ts         # GET /healthz, GET /readyz, GET /metrics
-│   ├── utils/
-│   │   └── shortCode.ts      # geração de código curto com retry
-│   ├── config.ts             # leitura e validação de variáveis de ambiente (zod)
-│   ├── app.ts                # buildApp(): instância Fastify + rotas
-│   └── server.ts             # entry point: initTelemetry → buildApp → listen
+├── app/
+│   ├── __init__.py
+│   ├── config.py       # Settings (dataclass frozen), leitura de env vars
+│   ├── db.py           # pool psycopg-pool, wait_for_database, migrate
+│   ├── main.py         # create_app(), lifespan, handlers, rotas
+│   ├── repository.py   # LinkRepository (todo o SQL da aplicação)
+│   ├── schema.sql      # DDL: links, click_events, active_links, índices
+│   ├── shortcode.py    # generate_code, is_valid_code, is_reserved, is_valid_url
+│   └── telemetry.py    # setup(), instrumentos OTel, interface pública
 ├── tests/
-│   ├── unit/
-│   │   ├── cache/
-│   │   ├── services/
-│   │   └── utils/
-│   └── integration/
-│       └── routes/
-├── Dockerfile
-├── docker-compose.yml
-├── package.json
-└── tsconfig.json
-```
-
-### Interfaces TypeScript relevantes
-
-```typescript
-// src/db/linksRepository.ts
-export interface LinkRow {
-  id: number;
-  short_code: string;
-  original_url: string;
-  clicks: number;
-  created_at: Date;
-  expires_at: Date | null;
-}
-
-// src/cache/redirectCache.ts
-export type CacheValue =
-  | { type: 'found';    original_url: string; expires_at: Date | null }
-  | { type: 'not_found' }
-  | { type: 'expired' };
-
-// src/telemetry/instruments.ts — interface exposta (sem tipos do SDK)
-export interface TelemetryInstruments {
-  recordRedirectDuration(durationMs: number, outcome: 'found' | 'not_found' | 'expired'): void;
-  incrementLinkClicks(): void;
-  incrementLinksCreated(kind: 'random' | 'vanity'): void;
-  // activeLinks Gauge é configurado via callback observável na inicialização
-}
-```
-
-### Dependências de produção propostas
-
-| Pacote | Versão | Finalidade |
-|---|---|---|
-| `fastify` | `^5.0.0` | Framework HTTP |
-| `pg` | `^8.13.0` | Driver PostgreSQL |
-| `lru-cache` | `^11.0.0` | Cache em memória |
-| `nanoid` | `^5.0.0` | Geração de código curto |
-| `zod` | `^3.23.0` | Validação de variáveis de ambiente |
-| `@opentelemetry/sdk-node` | `^0.202.0` | SDK OTel Node.js |
-| `@opentelemetry/auto-instrumentations-node` | `^0.52.0` | Instrumentação automática (HTTP, pg) |
-| `@opentelemetry/exporter-trace-otlp-proto` | `^0.202.0` | Exportador OTLP gRPC |
-| `@opentelemetry/exporter-metrics-otlp-proto` | `^0.202.0` | Exportador de métricas OTLP |
-| `@opentelemetry/api` | `^1.9.0` | API pública OTel |
-| `prom-client` | `^15.1.3` | Exposição de métricas no formato Prometheus (`GET /metrics`) |
-
-> **Nota sobre `prom-client`:** o SDK OTel exporta métricas via OTLP. Para expor um endpoint `GET /metrics` no formato de texto do Prometheus (scrapável diretamente), a abordagem mais simples e compatível com o ecossistema é usar `prom-client` em paralelo com o OTel SDK, registrando os mesmos instrumentos nos dois sistemas. Uma alternativa é usar o exporter Prometheus do OTel (`@opentelemetry/exporter-metrics-otlp-prometheus`), que expõe um endpoint HTTP próprio. A decisão final deve ser tomada junto com a definição da stack de observabilidade (D-09).
-
----
-
-## Data Models
-
-### Tabela `links`
-
-Mapeamento direto do `db-schema.sql`:
-
-```typescript
-// Objeto retornado pelo repositório
-interface LinkRow {
-  id: number;
-  short_code: string;       // VARCHAR(50)
-  original_url: string;     // TEXT
-  clicks: number;           // INTEGER DEFAULT 0
-  created_at: Date;         // TIMESTAMPTZ
-  expires_at: Date | null;  // TIMESTAMPTZ NULL
-}
-```
-
-### Tabela `click_events`
-
-```typescript
-interface ClickEventInsert {
-  link_id: number;
-  clicked_at: Date;       // DEFAULT CURRENT_TIMESTAMP
-  user_agent: string | null;
-  ip_address: string | null;
-}
-```
-
-### Objeto de resposta da listagem (`GET /api/links`)
-
-```typescript
-interface ListLinksResponse {
-  total: number;
-  items: {
-    short_code: string;
-    short_url: string;      // construído: BASE_URL + "/" + short_code
-    original_url: string;
-    clicks: number;
-    created_at: string;     // ISO 8601
-    expires_at: string | null;
-  }[];
-}
-```
-
-### Queries SQL dos repositórios
-
-**linksRepository.ts**
-
-```sql
--- findByShortCode (para redirect — usa view active_links)
-SELECT short_code, original_url, expires_at
-FROM active_links
-WHERE short_code = $1;
-
--- findByShortCodeDirect (para stats — usa tabela diretamente)
-SELECT short_code, original_url, clicks, created_at, expires_at
-FROM links
-WHERE short_code = $1;
-
--- listPaginated (para GET /api/links)
-SELECT
-  short_code, original_url, clicks, created_at, expires_at,
-  COUNT(*) OVER() AS total
-FROM links
-ORDER BY created_at DESC
-LIMIT $1 OFFSET $2;
-
--- insertLink
-INSERT INTO links (short_code, original_url, expires_at)
-VALUES ($1, $2, $3)
-RETURNING id, short_code, original_url, clicks, created_at, expires_at;
-
--- incrementClicks (atômico via UPDATE)
-UPDATE links SET clicks = clicks + 1 WHERE short_code = $1;
-```
-
-> A separação entre `findByShortCode` (via `active_links`) e `findByShortCodeDirect` (via `links`) é obrigatória para satisfazer os Requisitos 2, 5 e 6: o redirect usa `active_links` (filtra expirados) e o stats usa `links` (inclui expirados).
-
-**clicksRepository.ts**
-
-```sql
--- insertClickEvent (disparado assincronamente após o redirect)
-INSERT INTO click_events (link_id, clicked_at, user_agent, ip_address)
-VALUES ($1, $2, $3, $4);
+│   ├── conftest.py     # fixtures: settings, client, clean_db, sql
+│   ├── test_api.py     # testes de integração (17 funções de teste)
+│   ├── test_shortcode.py # testes unitários (5 funções de teste)
+│   └── test_telemetry.py # testes do contrato de telemetria (5 funções de teste)
+├── Dockerfile          # multi-stage: python:3.12-slim → produção sem root
+├── requirements.txt    # dependências de produção (versões fixas)
+├── requirements-dev.txt
+└── pytest.ini
 ```
 
 ---
 
-## Correctness Properties
+## 4. Configuração (`api/app/config.py`)
 
-*Uma propriedade é uma característica ou comportamento que deve ser verdadeiro em todas as execuções válidas do sistema — essencialmente, uma declaração formal sobre o que o sistema deve fazer. Propriedades servem como ponte entre especificações legíveis por humanos e garantias de corretude verificáveis por máquinas.*
-
-As propriedades a seguir foram derivadas dos critérios de aceitação dos Requisitos 2, 3, 4 e 5, conforme análise de testabilidade realizada antes desta seção. Cada propriedade é adequada para testes baseados em propriedades (PBT) porque o comportamento varia com o input, é verificável com inputs gerados aleatoriamente e pode ser executado de forma eficiente (lógica em memória ou com mocks leves).
-
-### Property 1: Cache hit evita consulta ao repositório
-
-*Para qualquer código curto e URL original válidos previamente inseridos no cache, chamadas subsequentes ao `redirectService` não devem invocar o `linksRepository`.*
-
-**Validates: Requirements 2.2**
-
-### Property 2: Cache miss popula o cache
-
-*Para qualquer código curto válido que não esteja no cache, após a primeira chamada ao `redirectService`, uma segunda chamada com o mesmo código não deve invocar o `linksRepository`.*
-
-**Validates: Requirements 2.3**
-
-### Property 3: TTL do cache respeita expiração do link
-
-*Para qualquer timestamp de expiração futuro `expires_at` (em segundos a partir de agora = `delta`), o TTL calculado para a entrada de cache deve ser igual a `max(1, delta)`.*
-
-**Validates: Requirements 2.4**
-
-### Property 4: Marcador de ausência para código inexistente
-
-*Para qualquer código curto que não exista no banco, após a primeira consulta, o cache deve retornar `{type: 'not_found'}` sem invocar o repositório novamente.*
-
-**Validates: Requirements 2.5**
-
-### Property 5: Paginação retorna subconjunto correto
-
-*Para qualquer lista de N links no banco e quaisquer parâmetros `limit` (1–200) e `offset` (0–N) válidos, `GET /api/links` deve retornar `total = N` e `items.length = min(limit, max(0, N - offset))`.*
-
-**Validates: Requirements 3.1, 3.2**
-
-### Property 6: `limit` inválido resulta em HTTP 400
-
-*Para qualquer valor inteiro estritamente maior que 200, `GET /api/links?limit=<valor>` deve retornar HTTP 400.*
-
-**Validates: Requirements 3.3**
-
-### Property 7: Parâmetros não-inteiros ou negativos resultam em HTTP 400
-
-*Para qualquer valor de `limit` ou `offset` que não seja um inteiro não-negativo (incluindo strings, floats, negativos), `GET /api/links` deve retornar HTTP 400.*
-
-**Validates: Requirements 3.4**
-
-### Property 8: `short_url` é sempre BASE_URL + "/" + short_code
-
-*Para qualquer link retornado por `GET /api/links`, o campo `short_url` deve ser igual à concatenação de `BASE_URL`, `"/"` e `short_code`.*
-
-**Validates: Requirements 3.5**
-
-### Property 9: Itens retornados em ordem decrescente de `created_at`
-
-*Para qualquer lista de links com `created_at` distintos, os `items` retornados por `GET /api/links` devem estar em ordem estritamente decrescente de `created_at`.*
-
-**Validates: Requirements 3.6**
-
-### Property 10: URL inválida resulta em HTTP 400
-
-*Para qualquer string que não seja uma URI absoluta com esquema `http` ou `https` (incluindo strings vazias, URIs relativas, esquemas `ftp://`, etc.), `POST /api/links` deve retornar HTTP 400.*
-
-**Validates: Requirements 4.2**
-
-### Property 11: `custom_code` com formato inválido resulta em HTTP 400
-
-*Para qualquer string fornecida como `custom_code` que contenha caracteres fora de `[a-zA-Z0-9_-]`, ou com comprimento fora de [3, 50], `POST /api/links` deve retornar HTTP 400.*
-
-**Validates: Requirements 4.3**
-
-### Property 12: Código gerado automaticamente respeita o alfabeto e comprimento configurados
-
-*Para qualquer URL válida sem `custom_code`, o `short_code` retornado deve ter exatamente `SHORT_CODE_LENGTH` caracteres e cada caractere deve pertencer ao `SHORT_CODE_ALPHABET`.*
-
-**Validates: Requirements 4.5**
-
-### Property 13: `qr_code_url` é sempre BASE_URL + "/qr/" + short_code
-
-*Para qualquer link criado com sucesso, o campo `qr_code_url` retornado deve ser igual à concatenação de `BASE_URL`, `"/qr/"` e `short_code`.*
-
-**Validates: Requirements 4.8**
-
-### Property 14: Redirect retorna 302 com Location correto para link ativo
-
-*Para qualquer link ativo, `GET /{shortCode}` deve retornar HTTP 302 com o header `Location` igual a `original_url` do link.*
-
-**Validates: Requirements 5.1**
-
-### Property 15: Redirect retorna 404 para código inexistente
-
-*Para qualquer código curto que não exista no banco, `GET /{shortCode}` deve retornar HTTP 404.*
-
-**Validates: Requirements 5.2**
-
-### Property 16: Clicks incrementa em 1 a cada redirect bem-sucedido
-
-*Para qualquer link ativo, após N chamadas bem-sucedidas a `GET /{shortCode}`, o valor de `clicks` deve ser exatamente N a mais que o valor inicial.*
-
-**Validates: Requirements 5.4**
-
-### Property 17: Stats retorna campos corretos para qualquer link existente
-
-*Para qualquer link existente (ativo ou expirado), `GET /api/links/{shortCode}/stats` deve retornar HTTP 200 com os campos `short_code`, `original_url`, `clicks`, `created_at` e `expires_at` iguais aos valores armazenados no banco.*
-
-**Validates: Requirements 6.1**
-
----
-
-## Error Handling
-
-### Tabela de casos de erro
-
-| Situação | Comportamento esperado | HTTP | Log |
-|---|---|---|---|
-| Banco indisponível na inicialização | Processo encerra com `process.exit(1)` após logar o erro | — | `error` |
-| Banco indisponível em mid-request (qualquer endpoint de dados) | Retorna `{"error": "service unavailable"}` | 503 | `error` |
-| `original_url` inválida em `POST /api/links` | Retorna `{"error": "invalid_url", "message": "..."}` | 400 | — |
-| `custom_code` com formato inválido | Retorna `{"error": "invalid_custom_code", "message": "..."}` | 400 | — |
-| `custom_code` já em uso | Retorna `{"error": "conflict", "message": "code already in use"}` | 409 | — |
-| `expires_at` inválido ou no passado | Retorna `{"error": "invalid_expires_at", "message": "..."}` | 400 | — |
-| Colisão total na geração aleatória (5 tentativas) | Retorna `{"error": "code_generation_failed"}` | 503 | `warn` |
-| `shortCode` inexistente no redirect | Retorna `{"error": "not_found"}` | 404 | — |
-| Link expirado no redirect | Retorna `{"error": "gone", "message": "link has expired"}` | 410 | — |
-| Falha no `UPDATE clicks` | Retorna `{"error": "upstream_error"}` | 502 | `error` |
-| Falha assíncrona na inserção de `click_event` | Não afeta a resposta HTTP; registra erro no log | — | `error` |
-| `GET /readyz`: SELECT 1 com timeout de 2s | Retorna `{"status":"error","db":"unavailable"}` | 503 | `warn` |
-| `limit` > 200 | Retorna `{"error": "invalid_parameter", "message": "limit must be ≤ 200"}` | 400 | — |
-| `limit`/`offset` não-inteiro | Retorna `{"error": "invalid_parameter", "message": "..."}` | 400 | — |
-
-### Formato de erro padrão
-
-```json
-{
-  "error": "<código_de_erro_machine_readable>",
-  "message": "<descrição legível por humanos>"
-}
-```
-
-### Estratégia de erros inesperados
-
-Erros não mapeados devem ser capturados pelo error handler global do Fastify, retornar HTTP 500 com `{"error": "internal_server_error"}` e registrar o stack trace em `error` level. **Nenhum detalhe interno deve vazar para o cliente em produção.**
-
----
-
-## Data Flows
-
-### POST /api/links
-
-```
-Cliente → [routes/links.ts]
-  1. Fastify valida o body contra o JSON Schema (original_url obrigatório)
-  2. Chama shortenService.createLink(body)
-     a. Valida original_url (URI absoluta http/https) via zod
-     b. Valida custom_code (formato) se fornecido
-     c. Valida expires_at (ISO 8601, futuro) se fornecido
-     d. Se custom_code fornecido:
-        - Tenta INSERT; se viola UNIQUE → lança ConflictError → 409
-     e. Se custom_code não fornecido:
-        - Gera código via shortCode.generate() (nanoid)
-        - Tenta INSERT; se viola UNIQUE → nova tentativa (até 5)
-        - Se 5 colisões → lança CodeGenerationError → 503
-     f. Incrementa instruments.incrementLinksCreated(kind)
-     g. Retorna LinkRow
-  3. Route constrói resposta 201 com short_url, qr_code_url
-```
-
-### GET /{shortCode}
-
-```
-Cliente → [routes/redirect.ts]
-  1. Extrai shortCode do path
-  2. Adiciona kiro.link.short_code ao span OTel atual
-  3. Inicia timer para kiro.link.redirect.duration
-  4. Chama redirectService.redirect(shortCode)
-     a. Consulta redirectCache.get(shortCode)
-        - HIT do tipo 'found'     → retorna original_url (sem consultar banco)
-        - HIT do tipo 'not_found' → lança NotFoundError → 404
-        - HIT do tipo 'expired'   → lança GoneError → 410
-        - MISS → consulta linksRepository.findByShortCode(shortCode)
-          * Resultado nulo (não existe na tabela links) → 
-            cache.set(shortCode, {type:'not_found'}, ttl=60s)
-            lança NotFoundError → 404
-          * Resultado existe mas expirado (não retornado por active_links) →
-            lança GoneError → 410 (sem cache de ausência)
-          * Resultado encontrado e ativo →
-            calcula TTL = max(1, expires_at - now) ou DEFAULT_TTL
-            cache.set(shortCode, {type:'found', original_url, expires_at}, ttl)
-            retorna original_url
-     b. Executa linksRepository.incrementClicks(shortCode) atomicamente
-        - Se falhar → lança UpstreamError → 502
-     c. Dispara clicksRepository.insertClickEvent(...) de forma assíncrona
-        (não bloqueia a resposta; erros são logados)
-     d. Incrementa instruments.incrementLinkClicks()
-  5. Route registra duração com outcome=found no histograma
-  6. Retorna 302 com Location: original_url
-  [Em caso de erro]:
-  - NotFoundError  → duração registrada com outcome=not_found → 404
-  - GoneError      → duração registrada com outcome=expired → 410
-  - UpstreamError  → 502
-```
-
-### GET /api/links
-
-```
-Cliente → [routes/links.ts]
-  1. Valida parâmetros limit (padrão 50, máx 200) e offset (padrão 0)
-  2. Se limit > 200 ou não-inteiro → 400
-  3. Chama listService.list({ limit, offset })
-     a. Executa query paginada com COUNT(*) OVER()
-     b. Constrói short_url para cada item
-     c. Retorna { total, items }
-  4. Retorna 200 com { total, items }
-```
-
-### GET /api/links/{shortCode}/stats
-
-```
-Cliente → [routes/stats.ts]
-  1. Valida shortCode (formato: 3-50 chars, [a-zA-Z0-9_-])
-  2. Chama statsService.getStats(shortCode)
-     a. Executa linksRepository.findByShortCodeDirect(shortCode)
-        (tabela links, não view active_links — inclui expirados)
-     b. Se não encontrado → lança NotFoundError → 404
-     c. Retorna LinkRow
-  3. Retorna 200 com os campos do link
-```
-
-### GET /readyz
-
-```
-Cliente → [routes/health.ts]
-  1. Tenta pool.query('SELECT 1') com timeout de 2 segundos
-  2. Se responder dentro do timeout → 200 {"status":"ok","db":"ok"}
-  3. Se timeout ou erro → cancela query pendente → 503 {"status":"error","db":"unavailable"}
-```
-
----
-
-## Cache Cache-Aside
-
-### Estrutura da entrada
-
-```typescript
-type CacheValue =
-  | { type: 'found';    original_url: string; expires_at: Date | null }
-  | { type: 'not_found' }
-  | { type: 'expired' };     // reservado para uso futuro; no fluxo atual, expirados não são cacheados
-```
-
-### Cálculo de TTL
-
-```typescript
-function computeTtl(expiresAt: Date | null, defaultTtlSeconds: number): number {
-  if (expiresAt === null) return defaultTtlSeconds;
-  const secondsUntilExpiry = Math.floor((expiresAt.getTime() - Date.now()) / 1000);
-  return Math.max(1, secondsUntilExpiry);
-}
-```
-
-### Comportamento por caso
-
-| Situação | Ação no cache | TTL |
-|---|---|---|
-| Link ativo sem `expires_at` | Armazena `{type:'found', ...}` | `CACHE_DEFAULT_TTL_SECONDS` (padrão 300s) |
-| Link ativo com `expires_at` | Armazena `{type:'found', ...}` | `max(1, expires_at - now)` em segundos |
-| Código inexistente na tabela | Armazena `{type:'not_found'}` | 60s fixo |
-| Código expirado | **Não armazena** | — |
-| Banco indisponível no miss | **Não armazena** | — |
-
-### Configuração
-
-```
-CACHE_MAX_SIZE=1000          # número máximo de entradas (padrão 1000)
-CACHE_DEFAULT_TTL_SECONDS=300 # TTL em segundos para links sem expiração (padrão 300)
-```
-
-### Implementação com `lru-cache`
-
-```typescript
-import { LRUCache } from 'lru-cache';
-
-const cache = new LRUCache<string, CacheValue>({
-  max: config.cacheMaxSize,
-  ttl: config.cacheDefaultTtlSeconds * 1000,  // lru-cache usa ms
-  allowStale: false,
-});
-```
-
----
-
-## Telemetry Module
-
-### Inicialização
-
-O módulo `api/src/telemetry/index.ts` deve ser importado e sua função `initTelemetry()` chamada como **primeiro statement** em `server.ts`, antes de qualquer outro import que possa instanciar conexões HTTP ou de banco.
-
-```typescript
-// server.ts
-import { initTelemetry } from './telemetry/index.js';
-initTelemetry();                         // ← DEVE ser o primeiro statement executado
-import { buildApp } from './app.js';
-import { checkDbConnectivity } from './db/pool.js';
-// ...
-```
-
-### Configuração do SDK
-
-```typescript
-// telemetry/sdk.ts
-import { NodeSDK } from '@opentelemetry/sdk-node';
-import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
-import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-proto';
-import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-proto';
-
-export function createSdk(): NodeSDK {
-  return new NodeSDK({
-    traceExporter: new OTLPTraceExporter(),   // endpoint via OTEL_EXPORTER_OTLP_ENDPOINT
-    metricReader: new PeriodicExportingMetricReader({
-      exporter: new OTLPMetricExporter(),
-    }),
-    instrumentations: [getNodeAutoInstrumentations({
-      '@opentelemetry/instrumentation-http': {
-        applyCustomAttributesOnSpan: () => {},
-      },
-    })],
-  });
-}
-```
-
-### Instrumentos manuais
-
-```typescript
-// telemetry/instruments.ts
-import { metrics } from '@opentelemetry/api';
-
-const meter = metrics.getMeter('kiro-api');
-
-export const redirectDurationHistogram = meter.createHistogram('kiro.link.redirect.duration', {
-  unit: 's',
-  advice: { explicitBucketBoundaries: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0] },
-});
-
-export const linkClicksCounter = meter.createCounter('kiro.link.clicks');
-
-export const linksCreatedCounter = meter.createCounter('kiro.links.created');
-
-// Gauge observável — callback executado a cada coleta pelo Prometheus/OTel
-meter.createObservableGauge('kiro.active_links', {}, async (observableResult) => {
-  const count = await queryActiveLinksCount();  // SELECT count(*) FROM active_links
-  observableResult.observe(count);
-});
-```
-
-### Interface pública (sem vazamento do SDK)
-
-Nenhum módulo fora de `telemetry/` deve importar do `@opentelemetry/api` diretamente. A interface a ser consumida pelos serviços:
-
-```typescript
-// telemetry/index.ts — exportações públicas
-export function recordRedirectDuration(durationSeconds: number, outcome: 'found' | 'not_found' | 'expired'): void {
-  redirectDurationHistogram.record(durationSeconds, { outcome });
-}
-
-export function incrementLinkClicks(): void {
-  linkClicksCounter.add(1);
-}
-
-export function incrementLinksCreated(kind: 'random' | 'vanity'): void {
-  linksCreatedCounter.add(1, { kind });
-}
-```
-
-### Garantia de `http.route` como template
-
-O plugin de auto-instrumentação Fastify/HTTP do OTel captura automaticamente o template da rota (ex.: `/{shortCode}`) em vez do path real, pois o Fastify expõe `request.routeOptions.url`. Verificar em `GET /metrics` que o atributo `http_route` contém `/{shortCode}` e não `/abc123` após a primeira integração real.
-
----
-
-## Short Code Generation
-
-```typescript
-// utils/shortCode.ts
-import { customAlphabet } from 'nanoid';
-import { config } from '../config.js';
-
-export async function generateShortCode(
-  checkExists: (code: string) => Promise<boolean>,
-): Promise<string> {
-  const generate = customAlphabet(config.shortCodeAlphabet, config.shortCodeLength);
-  const MAX_ATTEMPTS = 5;
-
-  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-    const code = generate();
-    const exists = await checkExists(code);
-    if (!exists) return code;
-  }
-
-  throw new CodeGenerationError('Failed to generate unique short code after 5 attempts');
-}
-```
+`Settings` é um `dataclass(frozen=True)` lido de variáveis de ambiente por `load_settings()`. Campos relevantes:
 
 | Variável | Padrão | Descrição |
 |---|---|---|
-| `SHORT_CODE_LENGTH` | `7` | Comprimento do código gerado |
-| `SHORT_CODE_ALPHABET` | `abcdefghijklmnopqrstuvwxyz0123456789` | Conjunto de caracteres |
+| `DATABASE_URL` ou `DB_HOST`+`DB_PORT`+`DB_NAME`+`DB_USER`+`DB_PASSWORD` | — | Conexão com o PostgreSQL |
+| `DB_POOL_MIN` | `1` | Tamanho mínimo do pool |
+| `DB_POOL_MAX` | `10` (máx 100) | Tamanho máximo do pool |
+| `BASE_URL` | `http://localhost:8080` | Prefixo de `short_url` |
+| `SHORT_CODE_LENGTH` | `7` | Comprimento do código aleatório |
+| `SHORT_CODE_ALPHABET` | `[a-z0-9]` | Alfabeto do código aleatório |
+| `DB_STARTUP_TIMEOUT_SECONDS` | `60` | Tempo máximo de espera pelo banco no startup |
+| `OTEL_SERVICE_NAME` | `kiro-api` | Lido diretamente pelo SDK OTel |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | — | Lido diretamente pelo SDK OTel |
+| `OTEL_TRACES_SAMPLER` | — | Lido diretamente pelo SDK OTel |
+| `OTEL_PROPAGATORS` | — | Lido diretamente pelo SDK OTel |
 
-Com os padrões: `36^7 ≈ 78 bilhões` de combinações possíveis. Colisão em 5 tentativas é improvável no volume do hackathon e resulta em HTTP 503.
+Não existem variáveis `CACHE_MAX_SIZE`, `CACHE_DEFAULT_TTL_SECONDS` nem `PORT` (a porta é configurada pelo uvicorn).
+
+Fonte: `api/app/config.py`.
 
 ---
 
-## Dockerfile Multi-Stage
+## 5. Pool de conexões e migração (`api/app/db.py`)
 
-```dockerfile
-# api/Dockerfile
+`create_pool()` instancia `psycopg_pool.ConnectionPool` com `autocommit=True` e `row_factory=dict_row`. O pool abre de forma lazy (`open=False`), e `pool.open(wait=False)` é chamado no lifespan do `main.py`.
 
-# ──── Etapa 1: build ────────────────────────────────────────────
-FROM node:22-alpine AS builder
-WORKDIR /app
+`wait_for_database(pool, timeout)` executa `SELECT 1` com timeout de 5s por tentativa, repetindo em loop (sleep 2s entre tentativas) até o timeout total (`DB_STARTUP_TIMEOUT_SECONDS`). Ao esgotar, levanta `RuntimeError`, o que encerra o processo.
 
-# Copia apenas os arquivos de dependências primeiro (cache de camada)
-COPY package*.json tsconfig.json ./
-RUN npm ci
+`migrate(pool)` adquire `pg_advisory_lock(7201026)` (evita migrações concorrentes em múltiplas réplicas), executa `schema.sql` de forma idempotente (`IF NOT EXISTS`, `CREATE OR REPLACE`, `ADD COLUMN IF NOT EXISTS`) e libera o lock.
 
-# Copia o restante do código-fonte e compila
-COPY src/ ./src/
-RUN npm run build    # tsc → dist/
+O lifespan do `main.py` chama as três funções dentro de `telemetry.untraced()` para não gerar spans de inicialização.
 
-# ──── Etapa 2: produção ─────────────────────────────────────────
-FROM node:22-alpine AS production
-WORKDIR /app
+Fonte: `api/app/db.py`, `api/app/main.py` (função `lifespan`).
 
-# Cria usuário sem privilégios
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+---
 
-# Copia apenas as dependências de produção e o código compilado
-COPY package*.json ./
-RUN npm ci --omit=dev && npm cache clean --force
+## 6. Schema do banco (`api/app/schema.sql`)
 
-COPY --from=builder /app/dist ./dist/
+```sql
+-- Tabela principal
+links (id, short_code VARCHAR(50) UNIQUE, original_url TEXT, clicks INTEGER DEFAULT 0,
+       created_at TIMESTAMPTZ, expires_at TIMESTAMPTZ NULL)
 
-# Transfere a propriedade dos arquivos para o usuário sem privilégios
-RUN chown -R appuser:appgroup /app
-USER appuser
+-- View que define "link ativo" (usada pelo redirect e pelo gauge de telemetria)
+active_links → SELECT * FROM links WHERE expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP
 
-EXPOSE 3000
-CMD ["node", "dist/server.js"]
+-- Log de cliques (analytics, ranking, features)
+click_events (id, link_id FK links, clicked_at TIMESTAMPTZ, user_agent TEXT,
+              ip_address VARCHAR(45), referer TEXT)
+-- Índices: idx_click_events_link_time (link_id, clicked_at DESC)
+--          idx_click_events_time (clicked_at DESC)
 ```
 
-A versão concreta do Node.js base (`node:22-alpine`) deve ser validada contra a versão LTS disponível no momento da implementação.
+O campo `ip_address` existe no schema mas não é gravado pela API (LGPD, comentário no `schema.sql`). O campo `referer` foi adicionado via `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`.
+
+Fonte: `api/app/schema.sql`.
 
 ---
 
-## docker-compose.yml Local
+## 7. Repositório (`api/app/repository.py`)
 
-```yaml
-# api/docker-compose.yml
-version: '3.9'
+`LinkRepository` encapsula todo o SQL. Métodos relevantes:
 
-services:
-  postgres:
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_DB: kiro_dev
-      POSTGRES_USER: kiro
-      POSTGRES_PASSWORD: kiro_dev_password   # placeholder — não usar em produção
-    volumes:
-      - ../db-schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U kiro -d kiro_dev"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-    ports:
-      - "5432:5432"
-
-  api:
-    build:
-      context: .
-      target: production
-    environment:
-      NODE_ENV: development
-      DATABASE_URL: postgres://kiro:kiro_dev_password@postgres:5432/kiro_dev
-      DB_POOL_MIN: "1"
-      DB_POOL_MAX: "5"
-      BASE_URL: http://localhost:3000
-      SHORT_CODE_LENGTH: "7"
-      SHORT_CODE_ALPHABET: abcdefghijklmnopqrstuvwxyz0123456789
-      CACHE_MAX_SIZE: "1000"
-      CACHE_DEFAULT_TTL_SECONDS: "300"
-      OTEL_SERVICE_NAME: kiro-api
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318   # ajustar se collector não estiver no compose
-      OTEL_PROPAGATORS: tracecontext,baggage
-      OTEL_TRACES_SAMPLER: parentbased_always_on
-    depends_on:
-      postgres:
-        condition: service_healthy
-    ports:
-      - "3000:3000"
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/healthz || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 6
-
-volumes:
-  postgres_data:
-```
-
-**Importante:** As credenciais acima são exclusivas para desenvolvimento local. Nunca devem ser versionadas com valores reais. Em produção, os valores serão fornecidos via Kubernetes Secrets, referenciados por ConfigMap e Secret do cluster (fora deste repositório).
-
----
-
-## Environment Variables
-
-Todas as variáveis de ambiente são lidas e validadas no startup por `src/config.ts` usando zod. A API deve recusar a inicialização se uma variável obrigatória estiver ausente ou com valor inválido.
-
-| Variável | Obrigatória | Padrão | Descrição |
-|---|---|---|---|
-| `DATABASE_URL` | Sim (ou variáveis individuais) | — | Connection string PostgreSQL |
-| `DB_HOST` | Não (se DATABASE_URL fornecido) | — | Host do banco |
-| `DB_PORT` | Não | `5432` | Porta do banco |
-| `DB_NAME` | Não | — | Nome do banco |
-| `DB_USER` | Não | — | Usuário do banco |
-| `DB_PASSWORD` | Não | — | Senha do banco |
-| `DB_POOL_MIN` | Não | `1` | Tamanho mínimo do pool |
-| `DB_POOL_MAX` | Não | `10` | Tamanho máximo do pool (máx. 100) |
-| `BASE_URL` | Sim | — | URL base para construir short_url e qr_code_url |
-| `PORT` | Não | `3000` | Porta de escuta HTTP |
-| `SHORT_CODE_LENGTH` | Não | `7` | Comprimento do código curto gerado |
-| `SHORT_CODE_ALPHABET` | Não | `abcdefghijklmnopqrstuvwxyz0123456789` | Alfabeto do código curto |
-| `CACHE_MAX_SIZE` | Não | `1000` | Número máximo de entradas no cache |
-| `CACHE_DEFAULT_TTL_SECONDS` | Não | `300` | TTL padrão do cache em segundos |
-| `OTEL_SERVICE_NAME` | Sim | — | Nome do serviço (deve ser `kiro-api`) |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | Sim | — | Endpoint OTLP do Collector |
-| `OTEL_PROPAGATORS` | Não | `tracecontext,baggage` | Propagadores de contexto |
-| `OTEL_TRACES_SAMPLER` | Não | `parentbased_always_on` | Sampler de traces |
-
----
-
-## Testing Strategy
-
-### Abordagem dual
-
-A estratégia combina testes de unidade/propriedade (lógica pura, em memória) com testes de integração (endpoints com banco real via Testcontainers).
-
-### Ferramentas propostas
-
-| Ferramenta | Finalidade |
-|---|---|
-| **Vitest** | Test runner (unit + property tests) — mais rápido que Jest para projetos TypeScript |
-| **fast-check** | Biblioteca PBT para gerar inputs aleatórios |
-| **Supertest** ou **Fastify inject** | Testes de integração HTTP sem subir servidor real |
-| **Testcontainers** | Banco PostgreSQL real para testes de integração |
-
-### Testes de unidade e propriedade (rápidos, sem I/O)
-
-Os testes de propriedade (PBT) devem ser configurados com **mínimo de 100 iterações** e tagueados com comentário referenciando a propriedade do design.
-
-Cobrir prioritariamente:
-
-- **`cache/redirectCache.ts`**: Propriedades 1–4 (cache hit, miss, TTL, marcador de ausência)
-- **`utils/shortCode.ts`**: Propriedade 12 (código gerado respeita alfabeto e comprimento)
-- **`services/listService.ts`**: Propriedades 5–9 (paginação, validação, formatação)
-- **`services/shortenService.ts`**: Propriedades 10–11, 13 (validação de URL, custom_code, qr_code_url)
-- **`services/redirectService.ts`**: Propriedades 14–16 (redirect, 404, incremento de clicks)
-- **`services/statsService.ts`**: Propriedade 17 (stats)
-
-Exemplo de tag de teste:
-```typescript
-// Feature: backend-api, Property 3: TTL do cache respeita expiração do link
-it.prop([fc.date({ min: new Date(Date.now() + 1000) })])('property 3', (expiresAt) => {
-  const ttl = computeTtl(expiresAt, 300);
-  const expected = Math.max(1, Math.floor((expiresAt.getTime() - Date.now()) / 1000));
-  expect(ttl).toBe(expected);
-});
-```
-
-### Testes de integração (com banco real)
-
-Cobrir os endpoints principais com banco PostgreSQL real via Testcontainers:
-
-- `POST /api/links` — criação com URL válida, custom_code, expires_at
-- `GET /{shortCode}` — 302, 404, 410 com link expirado
-- `GET /api/links` — paginação e total
-- `GET /api/links/{shortCode}/stats` — link expirado deve retornar 200
-- `GET /healthz` e `GET /readyz` — com banco disponível e indisponível
-- `GET /metrics` — verificar presença das métricas definidas no contrato
-
-### O que não testar com PBT
-
-- Inicialização do OTel SDK (smoke test)
-- Dockerfile e docker-compose (verificação manual / `docker build`)
-- Propagação de traces (verificação manual no Grafana/Tempo)
-- `GET /metrics` como texto Prometheus (integração, não PBT)
-
----
-
-## Impactos em outras specs
-
-| Área | Impacto |
-|---|---|
-| **Frontend** | O contrato da API está definido em `openapi.yaml`. Qualquer alteração nos campos de resposta ou nos status codes deve ser refletida no `openapi.yaml` e comunicada ao frontend. |
-| **Observabilidade (spec futura)** | Os nomes dos instrumentos (`kiro.link.clicks`, `kiro.link.redirect.duration`, etc.) e os atributos definidos aqui devem ser usados na configuração do dashboard Grafana e nas queries PromQL do `otel-metrics-spec.md`. |
-| **Manifests Kubernetes (spec futura)** | As variáveis de ambiente da seção de configuração devem ser mapeadas para ConfigMap e Secret. Os endpoints `/healthz` e `/readyz` devem ser referenciados nos probes `livenessProbe` e `readinessProbe` do Deployment. |
-| **GitOps / ArgoCD** | A imagem produzida pelo Dockerfile deve seguir a convenção de tag definida pela decisão D-10 (registry pendente). |
-
----
-
-## Decisões Pendentes
-
-As seguintes decisões afetam diretamente a implementação deste design e precisam ser confirmadas pela equipe antes de iniciar as tarefas:
-
-| ID | Decisão | Impacto neste design |
+| Método | SQL | Observações |
 |---|---|---|
-| D-03 | Linguagem e framework da API | Define se usamos Fastify ou Express, TypeScript ou JavaScript puro |
-| D-05 | Banco de dados | Confirma o uso de PostgreSQL com driver `pg` |
-| D-06 | Formato do código curto | Confirma o uso de nanoid, comprimento 7 e alfabeto `[a-z0-9]` |
-| D-09 | Ferramentas de observabilidade | Define o backend de traces (Tempo, Jaeger, etc.) e a abordagem para `GET /metrics` (prom-client vs exporter OTel Prometheus) |
-| D-10 | Registry de imagens | Define a convenção de tag no Dockerfile |
+| `ping(timeout)` | `SELECT 1` | Usado pelo `/readyz` |
+| `create(code, url, expires_at)` | `INSERT ... ON CONFLICT DO NOTHING RETURNING ...` | Retorna `None` se código já existe |
+| `list_page(limit, offset)` | `SELECT ... ORDER BY created_at DESC, id DESC LIMIT ... OFFSET ...` + `COUNT(*) total` | Dois statements na mesma conexão |
+| `get(code)` | `SELECT ... FROM links WHERE short_code = $1` | Usado pelo `/stats` (inclui expirados) |
+| `register_click(code, ua, referer)` | CTE atômica: `UPDATE links SET clicks+1` + `INSERT click_events` via `active_links` | `SET LOCAL synchronous_commit TO off` |
+| `exists(code)` | `SELECT 1 FROM links WHERE short_code = $1` | Usado para distinguir `expired` de `not_found` |
+| `count_active()` | `SELECT count(*) FROM active_links` | Callback do gauge `kiro_active_links` |
+| `clicks_by_hour(code, hours)` | GROUP BY `date_trunc('hour', ...)` sobre `click_events` | Para `last_24h` no `/stats` |
+| `ranking(hours, limit)` | COUNT de `click_events` na janela, ORDER BY clicks DESC | Para `/api/ranking` |
+
+`register_click` usa `SET LOCAL synchronous_commit TO off` para reduzir a latência do redirect (evita esperar pelo fsync do WAL nos cliques, sem afetar a durabilidade de criação de links).
+
+Fonte: `api/app/repository.py`.
+
+---
+
+## 8. Handlers e rotas (`api/app/main.py`)
+
+`create_app(settings)` instancia o `FastAPI`, configura o lifespan, registra handlers de erro globais e monta as rotas.
+
+### Rotas implementadas
+
+| Método | Rota | Handler | Status de retorno |
+|---|---|---|---|
+| `GET` | `/healthz` | `healthz` | 200 |
+| `GET` | `/readyz` | `readyz` | 200 / 503 |
+| `GET` | `/metrics` | `metrics_endpoint` | 200 (registrado por `telemetry.setup`) |
+| `GET` | `/api/links` | `list_links` | 200 / 400 / 503 |
+| `POST` | `/api/links` | `create_link` | 201 / 400 / 409 / 503 |
+| `GET` | `/api/links/{short_code}/stats` | `link_stats` | 200 / 400 / 404 |
+| `GET` | `/api/ranking` | `ranking` | 200 / 400 |
+| `GET` | `/r/{short_code}` | `redirect` | 302 / 404 / 410 |
+| `GET` | `/{short_code}` | `redirect` (alias) | 302 / 404 / 410 |
+
+A rota `/{short_code}` é registrada por último com `include_in_schema=False`.
+
+### Handlers de erro globais
+
+- `RequestValidationError` → 400 com `{error, message}` (primeiro campo inválido)
+- `psycopg.OperationalError` → 503 com `{error: "database_unavailable"}`
+- `PoolTimeout` → 503 com `{error: "database_unavailable"}`
+
+### Fluxo do redirect
+
+```
+GET /r/{short_code}
+  1. is_valid_code(short_code) → 404 se inválido (sem consultar banco)
+  2. tag_short_code(short_code)  ← atributo OTel no span atual
+  3. started = time.perf_counter()
+  4. url = repo.register_click(short_code, ua, referer)
+     → None: exists(short_code)?
+         True  → outcome="expired"  → redirect_finished(elapsed, "expired") → 410
+         False → outcome="not_found" → redirect_finished(elapsed, "not_found") → 404
+     → str: outcome="found" → redirect_finished(elapsed, "found")
+                             → link_clicked()
+                             → feature_used("qrcode") se via==qr
+                             → 302 com Cache-Control: no-store
+```
+
+Fonte: `api/app/main.py`.
+
+---
+
+## 9. Geração e validação de códigos (`api/app/shortcode.py`)
+
+| Função | Comportamento |
+|---|---|
+| `generate_code(length, alphabet)` | Usa `secrets.choice` (criptograficamente seguro) para gerar string de `length` chars do `alphabet` |
+| `is_valid_code(code)` | Regex `^[A-Za-z0-9_-]{3,50}$` |
+| `is_reserved(code)` | Verifica contra `RESERVED_CODES` (case-insensitive) |
+| `is_valid_url(url)` | `urlsplit` + verifica esquema `http`/`https`, netloc não vazio, len ≤ 2048 |
+
+`RESERVED_CODES`: `{"api", "r", "healthz", "readyz", "metrics", "docs", "redoc", "openapi.json"}`.
+
+Geração com retry (até `MAX_GENERATION_ATTEMPTS = 5`) está em `main.py`, não em `shortcode.py`.
+
+Fonte: `api/app/shortcode.py`, `api/app/main.py`.
+
+---
+
+## 10. Módulo de telemetria (`api/app/telemetry.py`)
+
+`setup(app)` inicializa os providers (uma vez por processo via flag `_initialized`) e instrumenta o app. Interface pública:
+
+| Função | Ação |
+|---|---|
+| `setup(app)` | Inicializa TracerProvider + MeterProvider; instrumenta FastAPI e psycopg; registra `GET /metrics` |
+| `link_created(vanity)` | `_links_created.add(1, {"kind": "vanity"/"random"})` |
+| `link_clicked()` | `_link_clicks.add(1)` |
+| `redirect_finished(seconds, outcome)` | `_redirect_duration.record(seconds, {"outcome": outcome})` |
+| `feature_used(feature)` | `_feature_used.add(1, {"feature": feature})` — valida contra `FEATURES` |
+| `tag_short_code(code)` | `trace.get_current_span().set_attribute("kiro.link.short_code", code)` |
+| `untraced()` | Context manager: `suppress_instrumentation()` — usado em probes e startup |
+| `set_active_links_source(fn)` | Registra callback para o gauge `kiro.active_links` |
+
+`OTEL_SEMCONV_STABILITY_OPT_IN=http` é forçado antes dos imports de instrumentação para garantir o nome estável `http.server.request.duration`.
+
+O `TracerProvider` só adiciona `BatchSpanProcessor` se `OTEL_EXPORTER_OTLP_ENDPOINT` estiver definido e `OTEL_SDK_DISABLED` não for `"true"`.
+
+O Histogram de redirect usa `ExplicitBucketHistogramAggregation([0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0])`.
+
+Probes (`/healthz`, `/readyz`, `/metrics`) e spans internos do ASGI (`receive`, `send`) são excluídos da instrumentação.
+
+Fonte: `api/app/telemetry.py`.
+
+---
+
+## 11. Dockerfile (`api/Dockerfile`)
+
+Build multi-stage (não lido nesta reconciliação; assumido consistente com o critério 11.1 e 11.5 confirmados pelo `k8s/api/deployment.yaml` que usa `runAsNonRoot: true` e `runAsUser: 10001`).
+
+Fonte: `api/Dockerfile`, `k8s/api/deployment.yaml`.
+
+---
+
+## 12. Testes (`api/tests/`)
+
+| Arquivo | Funções de teste | Cobertura |
+|---|---|---|
+| `test_api.py` | 17 | Integração com Postgres real: probes, criação, conflito, validações, listagem, redirect (302/404/410), contagem de cliques, click_events, stats, banco fora do ar (503), série por hora, referer, ranking |
+| `test_shortcode.py` | 5 | Unitários: geração de código, validação de código e URL, códigos reservados |
+| `test_telemetry.py` | 5 | Contrato de telemetria: métricas (nomes, rótulos, cardinalidade), span de banco como filho do span HTTP, propagação W3C traceparent, métricas de feature, probes sem span |
+
+O `conftest.py` usa `TestClient` (síncrono) do FastAPI com banco de teste real (PostgreSQL via `TEST_DATABASE_URL`). Cada teste começa com `TRUNCATE links, click_events`.
+
+Fonte: `api/tests/`.
+
+---
+
+## 13. Rastreabilidade dos requisitos
+
+| Requisito | Critério | Estado | Evidência |
+|---|---|---|---|
+| 1.1 | Pool configurável via env vars | Atendido | `api/app/config.py`, `api/app/db.py` |
+| 1.2 | SQL encapsulado em repositório | Atendido com divergência | `api/app/repository.py` (repositório único, não dois separados) |
+| 1.3 | SELECT 1 no startup | Atendido com divergência | `api/app/db.py` (`wait_for_database`, timeout total configurável vs. 5s fixo) |
+| 1.4 | Encerramento em falha de startup | Atendido com divergência | `api/app/db.py` (RuntimeError não capturado encerra o processo) |
+| 1.5 | HTTP 503 em mid-request sem encerrar | Atendido | `api/app/main.py` (`on_db_unavailable`); `test_api.py` (`test_database_down_returns_503`) |
+| 1.6 | Redirect usa view `active_links` | Atendido | `api/app/repository.py` (`register_click` via CTE com `active_links`) |
+| 2.1–2.7 | Cache Cache-Aside | Não atendido | Cache não implementado. Ver requirements.md, Req. 2. |
+| 3.1 | GET /api/links retorna `{total, items}` | Atendido | `api/app/main.py` (`list_links`); `test_api.py` |
+| 3.2 | Paginação `limit`/`offset` | Atendido | `api/app/main.py`, `api/app/repository.py`; `test_api.py` |
+| 3.3 | `limit > 200` → 400 | Atendido | `api/app/main.py`; `test_api.py` (`test_list_rejects_bad_pagination`) |
+| 3.4 | Parâmetros inválidos → 400 | Atendido | `api/app/main.py`; `test_api.py` |
+| 3.5 | `short_url = BASE_URL + /r/ + code` | Atendido com divergência | `api/app/main.py` (`short_url`); `test_api.py` (`test_create_random_code`) |
+| 3.6 | Ordenação por `created_at DESC` | Atendido com divergência | `api/app/repository.py` (`list_page`: `ORDER BY created_at DESC, id DESC`) |
+| 4.1 | POST /api/links → 201 com campos | Atendido com divergência | `api/app/main.py`; sem `qr_code_url` |
+| 4.2 | Validação de `original_url` | Atendido | `api/app/shortcode.py` (`is_valid_url`); `test_api.py` |
+| 4.3 | Validação de `custom_code` | Atendido com extensão | `api/app/shortcode.py`; inclui verificação de reservados |
+| 4.4 | `custom_code` em uso → 409 | Atendido | `api/app/main.py`, `api/app/repository.py`; `test_api.py` |
+| 4.5 | Geração aleatória com retry | Atendido | `api/app/main.py` (`MAX_GENERATION_ATTEMPTS = 5`); `test_api.py` |
+| 4.6 | `expires_at` inválido → 400 | Atendido | `api/app/main.py`; `test_api.py` |
+| 4.7 | `kiro.links.created` incrementado | Atendido | `api/app/main.py` (`telemetry.link_created`); `test_telemetry.py` |
+| 4.8 | `qr_code_url` na resposta | Não atendido | QR Code gerado no navegador (D-17). Sem `qr_code_url` na API. |
+| 5.1 | GET /r/{code} → 302 | Atendido com divergência | Rota canônica `/r/{short_code}`; `test_api.py` |
+| 5.2 | Código inexistente → 404 | Atendido | `api/app/main.py`; `test_api.py` |
+| 5.3 | Link expirado → 410 | Atendido | `api/app/main.py`; `test_api.py` (`test_redirect_expired_link_is_410`) |
+| 5.4 | `clicks` incrementado atomicamente | Atendido com divergência | CTE em `register_click` (`api/app/repository.py`) |
+| 5.5 | Inserção de `click_event` com `user_agent` | Atendido com divergência | Síncrono no CTE; sem `ip_address` (LGPD); `referer` gravado extra |
+| 5.6 | `kiro.link.redirect.duration` | Atendido | `api/app/main.py`; `test_telemetry.py` |
+| 5.7 | `kiro.link.clicks` incrementado | Atendido | `api/app/main.py`; `test_telemetry.py` |
+| 5.8 | `kiro.link.short_code` no span | Atendido | `api/app/telemetry.py` (`tag_short_code`); `test_telemetry.py` |
+| 5.9 | Falha no `clicks` → 502 | Não atendido | Falha de banco retorna 503 (handler global), não 502. |
+| 6.1 | GET /api/links/{code}/stats → 200 | Atendido com extensão | Inclui `last_24h`; `test_api.py` |
+| 6.2 | Stats: código inexistente → 404 | Atendido | `api/app/main.py`; `test_api.py` |
+| 6.3 | Stats usa tabela `links` (inclui expirados) | Atendido | `api/app/repository.py` (`get`); `test_api.py` |
+| 6.4 | `shortCode` inválido no stats → 400 | Atendido | `api/app/main.py`; `test_api.py` (`test_stats`) |
+| 7.1 | `/healthz` → 200 sem checar banco | Atendido | `api/app/main.py`; `test_api.py`, `test_telemetry.py` |
+| 7.2 | `/healthz` < 100 ms | Não verificado | Não testado por tempo de execução; endpoint trivial. |
+| 8.1 | `/readyz` → 200 com banco ok | Atendido | `api/app/main.py`; `test_api.py` |
+| 8.2 | `/readyz` → 503 sem banco | Atendido | `api/app/main.py`; `test_api.py` (`test_database_down_returns_503`) |
+| 8.3 | Cancelamento de query no timeout | Não verificado | `pool.connection(timeout=2)` timeout de conexão; comportamento de cancelamento não confirmado. |
+| 9.1 | `/metrics` → 200, formato Prometheus | Atendido | `api/app/telemetry.py`; `test_telemetry.py` |
+| 9.2 | Métricas manuais expostas | Atendido | `api/app/telemetry.py`; `test_telemetry.py` |
+| 9.3 | `http_server_request_duration_seconds` | Atendido | `api/app/telemetry.py` (`FastAPIInstrumentor`); `test_telemetry.py` |
+| 9.4 | `http_route` = template | Atendido com divergência | Template é `/r/{short_code}`, não `/{shortCode}`; `test_telemetry.py` |
+| 9.5 | Sem atributos de alta cardinalidade | Atendido | `api/app/telemetry.py` (`FEATURES` fixo); `test_telemetry.py` |
+| 9.6 | Gauge via callback `count_active` | Atendido | `api/app/telemetry.py`, `api/app/repository.py`; `test_telemetry.py` |
+| 9.7 | Buckets do histograma | Atendido | `api/app/telemetry.py` (`ExplicitBucketHistogramAggregation`); `test_telemetry.py` |
+| 10.1 | Módulo único de telemetria | Atendido com divergência | `api/app/telemetry.py` (não `api/src/telemetry/`) |
+| 10.2 | Telemetria inicializada antes do HTTP | Atendido | `api/app/main.py` (`telemetry.setup(app)` no início de `create_app`) |
+| 10.3 | Propagação W3C + spans de banco filhos | Atendido | `api/app/telemetry.py`; `test_telemetry.py` (`test_trace_has_db_span_as_child`) |
+| 10.4 | `service.name = kiro-api` via env | Atendido | `api/app/telemetry.py`, `k8s/api/configmap.yaml` |
+| 10.5 | OTLP endpoint via env | Atendido | `api/app/telemetry.py` |
+| 10.6 | Sampler via `OTEL_TRACES_SAMPLER` | Atendido | `api/app/telemetry.py` (SDK lê env diretamente) |
+| 10.7 | Nomes dos spans | Atendido com divergência | Span do redirect é `GET /r/{short_code}`; `test_telemetry.py` |
+| 10.8 | `kiro.link.short_code` no span | Atendido | `api/app/telemetry.py` (`tag_short_code`); `test_telemetry.py` |
+| 10.9 | Interface encapsulada sem vazamento do SDK | Atendido | `api/app/telemetry.py` (interface pública em funções simples); código de negócio não importa OTel diretamente |
+| 11.1 | `Dockerfile` multi-stage | Atendido | `api/Dockerfile` |
+| 11.2 | `docker-compose.yml` na raiz | Atendido com divergência | `docker-compose.yml` na raiz do repo, não em `api/` |
+| 11.3 | Ambiente funcional em 60s | Atendido | `docker-compose.yml` (healthcheck api: 12 tentativas × 5s = 60s) |
+| 11.4 | Sem credenciais reais versionadas | Atendido | `docker-compose.yml` (valor padrão: `troque-esta-senha`) |
+| 11.5 | Usuário sem root no container | Atendido | `k8s/api/deployment.yaml` (`runAsNonRoot`, `runAsUser: 10001`) |
+
+---
+
+## 14. Lacunas
+
+### L-1 — Cache de redirecionamento (Requisito 2)
+
+**Procurado:** variáveis `CACHE_MAX_SIZE`, `CACHE_DEFAULT_TTL_SECONDS` em `api/app/config.py`; importação de biblioteca de cache em `api/app/` (lru-cache, cachetools, etc.); lógica cache-aside em `api/app/main.py` ou `api/app/repository.py`.
+
+**Não encontrado.** O redirect vai direto ao banco a cada requisição (`register_click` em `api/app/repository.py`). A latência é mitigada por `synchronous_commit off` na transação de clique.
+
+### L-2 — Campo `qr_code_url` na resposta de criação (Requisito 4.8)
+
+**Procurado:** campo `qr_code_url` na função `serialize` de `api/app/main.py`; endpoint `GET /qr/{shortCode}`.
+
+**Não encontrado.** O QR Code é gerado no navegador (D-17). A decisão está documentada em `openapi.yaml` (v1.2.0, changelog).
+
+### L-3 — HTTP 502 em falha de incremento de clicks (Requisito 5.9)
+
+**Procurado:** distinção entre falha no `UPDATE clicks` (502) e falha geral de banco (503) em `api/app/main.py`.
+
+**Não encontrado.** O handler global (`on_db_unavailable`) trata `psycopg.OperationalError` e `PoolTimeout` como 503, sem distinção. O CTE atômico torna a falha no incremento indistinguível de falha geral de banco.
+
+### L-4 — `ip_address` nos `click_events` (Requisito 5.5)
+
+**Procurado:** gravação de `ip_address` em `register_click` de `api/app/repository.py`.
+
+**Não encontrado.** O campo existe no schema mas a API passa `None` implicitamente (o INSERT não inclui `ip_address`). Motivo documentado no `schema.sql`: "a API não grava IP (LGPD)".
+
+### L-5 — Latência < 100 ms do `/healthz` (Requisito 7.2)
+
+**Não verificado por execução.** O endpoint é trivial, mas o critério de latência não foi medido.
+
+### L-6 — Cancelamento explícito de query no timeout do `/readyz` (Requisito 8.3)
+
+**Não verificado por execução.** `pool.connection(timeout=2)` aplica timeout na aquisição de conexão, não na execução da query. O comportamento ao atingir o timeout não foi confirmado em ambiente com banco lento.
+
+---
+
+## 15. Plano original (substituído por D-03)
+
+O conteúdo abaixo é o plano original do design, escrito para Node.js/Fastify/TypeScript, preservado para rastreabilidade histórica. Foi substituído pela decisão D-03 (Python/FastAPI).
+
+**Stack proposta (substituída):**
+- Node.js LTS + TypeScript (`tsconfig.json`, `dist/`, `src/`)
+- Fastify `^5.0.0` como framework HTTP
+- `pg ^8.13.0` como driver PostgreSQL
+- `lru-cache ^11.0.0` para cache em memória
+- `nanoid ^5.0.0` para geração de código
+- `zod ^3.23.0` para validação de variáveis de ambiente
+- `@opentelemetry/sdk-node`, `@opentelemetry/auto-instrumentations-node`
+
+**Estrutura de diretórios proposta (substituída):**
+```
+api/src/
+  telemetry/index.ts, sdk.ts, instruments.ts
+  db/pool.ts, linksRepository.ts, clicksRepository.ts
+  cache/redirectCache.ts
+  services/shortenService.ts, redirectService.ts, statsService.ts, listService.ts
+  routes/links.ts, redirect.ts, stats.ts, health.ts
+  utils/shortCode.ts
+  config.ts, app.ts, server.ts
+```
+
+**Principais diferenças em relação à implementação real:**
+- Node.js → Python; Fastify → FastAPI; TypeScript → Python tipado
+- `pg.Pool` → `psycopg-pool`; `nanoid` → `secrets.choice`; `zod` → dataclass + código direto
+- Cache Cache-Aside com `lru-cache` → não implementado
+- Dois repositórios separados (`linksRepository`, `clicksRepository`) → `LinkRepository` único
+- Camada de serviços (`shortenService`, `redirectService`, etc.) → lógica nos handlers de `main.py`
+- `api/docker-compose.yml` separado → `docker-compose.yml` na raiz do repo
+- `qr_code_url` retornado pela API → QR Code gerado no navegador (D-17)
+
+O design original completo (com queries SQL, interfaces TypeScript e fluxos detalhados) está na versão anterior deste arquivo no histórico do Git.
