@@ -1,169 +1,76 @@
-> **Atualização 2026-10-16:** este guia descreve o esqueleto inicial. A integração foi concluída na branch
-> `feat/devops-gitops-python`: pipeline único `ci-cd.yaml`, kustomize em `k8s/` e Application em `argocd/`.
-> Veja o README para o estado atual.
+# Guia de integração DevOps
 
-# Guia de Integração DevOps — Para o Time
+Este guia é para quem vai mexer em alguma parte do projeto e precisa saber como aquilo chega ao cluster. Ele começou como um "o que cada um precisa entregar" antes de existir API e frontend; agora que tudo está integrado, ele explica o caminho de uma mudança e o que tocar em cada caso.
 
-Este documento explica o que já está pronto na infraestrutura e **o que cada pessoa do time
-precisa fazer** para conectar seu trabalho ao pipeline.
+## Como uma mudança chega ao cluster
+
+1. Você abre um PR para a `develop` (ou faz push nela). O pipeline `ci-cd.yaml` roda os testes da API e do frontend, valida os manifests e builda as imagens, sem publicar.
+2. A `develop` vai para a `main` por PR. Na `main`, o pipeline publica as imagens no GHCR com a tag do commit e o bot grava essa tag em `k8s/kustomization.yaml`.
+3. O ArgoCD vê o commit e aplica no cluster. Em uns 3 minutos os pods novos estão no ar.
+
+Ninguém roda `kubectl apply` à mão. Se fizer, o ArgoCD desfaz (`selfHeal`).
+
+Mudanças só em `**.md`, `docs/` e `.kiro/` não disparam o pipeline.
 
 ## O que já está no lugar
 
 ```
-.github/workflows/
-├── ci-api.yaml        ← dispara automaticamente ao mexer em api/
-└── ci-frontend.yaml   ← dispara automaticamente ao mexer em frontend/
-
+.github/workflows/ci-cd.yaml   # pipeline único: testes → validação → build → deploy
+argocd/application.yaml        # Application kiro-portal, observando k8s/ na main
 k8s/
-├── base/
-│   ├── namespace.yaml     ← namespace "encurtador"
-│   ├── argocd-app.yaml    ← configuração do ArgoCD (aplica tudo em k8s/)
-│   └── ingress.yaml       ← expõe frontend e API externamente
-├── api/
-│   ├── deployment.yaml    ← Deployment com probes, envs e recursos definidos
-│   ├── service.yaml       ← Service ClusterIP
-│   └── configmap.yaml     ← variáveis não sensíveis (porta, host do banco etc.)
-├── database/
-│   ├── statefulset.yaml   ← PostgreSQL com PVC de 1Gi
-│   ├── service.yaml       ← Service interno
-│   └── secret.yaml        ← estrutura do Secret (SEM valores reais)
-├── frontend/
-│   ├── deployment.yaml    ← Deployment com probes e env da URL da API
-│   └── service.yaml       ← Service ClusterIP
-└── observability/
-    └── .gitkeep           ← reservado para o SRE (spec 03)
+├── kustomization.yaml         # ponto de entrada; o CI só mexe no bloco images
+├── base/                      # namespace "encurtador" e Ingress (desligado)
+├── api/                       # Deployment (2 réplicas), Service e ConfigMap
+├── frontend/                  # Deployment (2 réplicas) e Service
+├── database/                  # StatefulSet do Postgres, Service e Secret de exemplo
+└── observability/             # Collector, Tempo, Prometheus, Grafana, configs e dashboard
+scripts/                       # kind-up, argocd-up, port-forward, gerar-trafego
+docker-compose.yml             # a mesma stack para rodar na máquina
 ```
 
----
+## Backend
 
-## [Nome 3 — Backend] O que você precisa fazer
+**Variável de ambiente nova.** Leia em `api/app/config.py`. Se não for sensível, coloque o valor em `k8s/api/configmap.yaml` e no serviço `api` do `docker-compose.yml`. Se for senha ou token, vai num Secret: avise o DevOps, porque o valor real não pode ir para o Git.
 
-### 1. Criar o Dockerfile em `api/Dockerfile`
+Variáveis que a API já recebe no cluster:
 
-O CI espera um `Dockerfile` na raiz do diretório `api/`. Ele faz o build a partir daí.
+| Variável | De onde vem | Valor no cluster |
+|---|---|---|
+| `DB_HOST`, `DB_PORT`, `DB_NAME` | ConfigMap `api-config` | `database`, `5432`, `encurtador` |
+| `DB_POOL_MAX` | ConfigMap | `10` |
+| `BASE_URL` | ConfigMap | `http://localhost:3000` |
+| `SHORT_CODE_LENGTH` | ConfigMap | `7` |
+| `OTEL_SERVICE_NAME`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_PROPAGATORS`, `OTEL_TRACES_SAMPLER` | ConfigMap | ver `docs/otel-metrics-spec.md` |
+| `DB_USER`, `DB_PASSWORD` | Secret `db-credentials` | valores de exemplo no Git |
 
-Exemplo mínimo (Python/FastAPI):
-```dockerfile
-FROM python:3.12-slim
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-COPY . .
-EXPOSE 8080
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
-```
+**Rota nova.** Atualize o `openapi.yaml` e escreva o teste em `api/tests/test_api.py`. Se o caminho puder colidir com um código curto (a rota `/{code}` aceita qualquer coisa), inclua o nome em `RESERVED_CODES`, em `api/app/shortcode.py`.
 
-### 2. Implementar o endpoint `/health`
+**Mudança no banco.** Edite `api/app/schema.sql` de forma idempotente (`IF NOT EXISTS`, `ADD COLUMN IF NOT EXISTS`). A API aplica o schema a cada boot, com lock, então não existe passo de migração separado.
 
-O Kubernetes usa esse endpoint para saber se a API está viva. Ele precisa retornar `200 OK`.
+**Porta.** A API escuta na 8080. Se mudar, mude também o Dockerfile, o `containerPort`, o Service, as anotações do Prometheus e o upstream do `frontend/nginx.conf`.
 
-```python
-# FastAPI
-@app.get("/health")
-def health():
-    return {"status": "ok"}
-```
+## Frontend
 
-```javascript
-// Express
-app.get('/health', (req, res) => res.json({ status: 'ok' }))
-```
+O frontend e as telas são do Joseph. Mudança visual, de tela ou de texto passa por Diêgo.
 
-### 3. Conferir as variáveis de ambiente disponíveis
+- Toda chamada à API passa por `frontend/src/api/api.js`, que usa o `tracedFetch`. Assim o trace começa no navegador sem esforço extra.
+- O frontend não tem variáveis de ambiente: em produção o nginx faz proxy de `/api` e `/r` para a API; em desenvolvimento, o Vite.
+- O nginx escuta na 8080 dentro do container e responde `/healthz` sozinho para as probes.
+- Rota nova no React não precisa de nada no nginx, porque qualquer caminho desconhecido cai no `index.html`. Só caminhos que devem ir para a API precisam de um `location`.
 
-Seu código receberá as seguintes variáveis já configuradas nos manifests:
+## SRE e observabilidade
 
-| Variável      | De onde vem  | Valor atual (ajuste se necessário) |
-|---------------|--------------|-------------------------------------|
-| `APP_PORT`    | ConfigMap    | `8080`                              |
-| `DB_HOST`     | ConfigMap    | `database.encurtador.svc.cluster.local` |
-| `DB_PORT`     | ConfigMap    | `5432`                              |
-| `DB_NAME`     | ConfigMap    | `encurtador`                        |
-| `LOG_LEVEL`   | ConfigMap    | `info`                              |
-| `DB_USER`     | Secret       | injetado pelo ops na criação do Secret |
-| `DB_PASSWORD` | Secret       | idem                                |
+**Métrica nova de feature.** Inclua o nome em `FEATURES`, em `api/app/telemetry.py`, chame `telemetry.feature_used("<nome>")` no ponto certo e atualize o contrato e o teste. O painel "Uso de features" já mostra qualquer valor novo.
 
-Se precisar de mais variáveis, adicione em `k8s/api/configmap.yaml` (não sensíveis) ou avise
-o DevOps para adicionar no Secret.
+**Painel novo.** Edite `k8s/observability/dashboards/kiro-portal.json` (dá para exportar do Grafana e colar). O kustomize gera o ConfigMap com hash, então o Grafana reinicia sozinho com o painel novo depois do sync.
 
-### 4. Confirmar a porta
+**Config do Collector, Tempo, Prometheus ou Grafana.** Edite os arquivos em `k8s/observability/config/`. Eles valem para o compose e para o cluster. O Prometheus tem uma versão só do compose (`prometheus.compose.yaml`), com alvo fixo.
 
-O `deployment.yaml` espera que a API escute na porta `8080`. Se for diferente, avise o DevOps
-para ajustar o `containerPort` e o ConfigMap.
+**Scrape de outro serviço.** Basta colocar as anotações `prometheus.io/scrape: "true"`, `prometheus.io/port` e `prometheus.io/path` no pod. O job `kiro-pods` acha sozinho.
 
----
+## Secrets
 
-## [Nome 4 — Frontend] O que você precisa fazer
-
-### 1. Criar o Dockerfile em `frontend/Dockerfile`
-
-Exemplo mínimo (Next.js):
-```dockerfile
-FROM node:20-alpine AS builder
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci
-COPY . .
-RUN npm run build
-
-FROM node:20-alpine
-WORKDIR /app
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/public ./public
-EXPOSE 3000
-CMD ["node", "server.js"]
-```
-
-### 2. Implementar um endpoint ou página de health check
-
-O Kubernetes testa `GET /` (raiz) para a readiness probe. Se o framework retornar `200 OK`
-na raiz automaticamente, não é necessário criar nada extra. Confirme com o DevOps se a porta
-for diferente de `3000`.
-
-### 3. Variável de ambiente da API
-
-O endereço da API está em `NEXT_PUBLIC_API_URL` (Next.js) ou equivalente. O valor atual
-é um placeholder — o DevOps vai ajustar conforme Q-01 for confirmada.
-
-### 4. Confirmar a porta
-
-O `deployment.yaml` espera que o frontend escute na porta `3000`. Se for diferente, avise.
-
----
-
-## [Nome 2 — SRE & Observabilidade] O que você precisa fazer
-
-O diretório `k8s/observability/` está reservado para você. Adicione seus manifests lá.
-
-Os Deployments da API e do frontend já têm comentários com as anotações do Prometheus
-esperando para serem descomentadas quando sua spec (03-observabilidade) chegar:
-
-```yaml
-# Descomente no k8s/api/deployment.yaml quando a spec 03 for implementada:
-# annotations:
-#   prometheus.io/scrape: "true"
-#   prometheus.io/port: "8080"
-#   prometheus.io/path: "/metrics"
-```
-
----
-
-## Decisões pendentes que bloqueiam partes do pipeline
-
-| ID   | Questão                                      | Quem decide |
-|------|----------------------------------------------|-------------|
-| D-02 | Ambiente Kubernetes (kind local / cluster)   | Time todo   |
-| D-03 | Linguagem da API                             | Nome 3      |
-| D-04 | Framework do frontend                        | Nome 4      |
-| D-05 | Banco de dados (PostgreSQL confirmado?)      | Nome 3      |
-| D-08 | Nome do produto e namespace final            | Time todo   |
-| D-10 | Registry (GHCR está como padrão)             | Confirmar   |
-| Q-01 | Ingress ou NodePort?                         | Nome 1 + D-02 |
-| Q-03 | ArgoCD já instalado no cluster?              | Nome 1      |
-
----
-
-## Como criar o Secret do banco (sem commitar credenciais)
+Os Secrets do Git (`k8s/database/secret.yaml` e o `grafana-admin`) têm só valores de exemplo, para o ArgoCD conseguir subir a demo sem passo manual. Num ambiente de verdade, tire esses arquivos do kustomization e crie os Secrets direto no cluster:
 
 ```bash
 kubectl create secret generic db-credentials \
@@ -173,14 +80,21 @@ kubectl create secret generic db-credentials \
   --dry-run=client -o yaml | kubectl apply -f -
 ```
 
----
+## Testar antes do PR
 
-## Fluxo após as decisões estarem confirmadas
+```bash
+docker compose --profile test run --rm api-test     # testes da API em Python 3.12
+docker compose --profile test down
+cd frontend && npm run lint && npm run lint:css && npm test && npm run build
+kubectl kustomize k8s > /dev/null                    # manifests renderizam
+docker compose up --build                            # stack completa em localhost:3000
+```
 
-1. Backend cria o Dockerfile e o endpoint `/health`.
-2. Frontend cria o Dockerfile.
-3. DevOps ajusta os TODOs nos manifests (imagem, porta, host) e cria o Secret no cluster.
-4. Primeiro push na branch `main` dispara o CI.
-5. CI faz build, push da imagem e atualiza o manifesto.
-6. ArgoCD detecta a mudança e sincroniza o cluster.
-7. `kubectl get pods -n encurtador` deve mostrar tudo `Running`.
+Para ver no Kubernetes antes do merge, `scripts/kind-up.sh` sobe um cluster kind com as imagens buildadas na sua máquina.
+
+## Ainda em aberto
+
+| ID | Questão |
+|---|---|
+| D-02 | Ambiente final: hoje é kind local com ArgoCD |
+| Q-01 | Ingress: o manifest existe, mas só liga quando houver um Ingress Controller |

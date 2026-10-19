@@ -1,148 +1,119 @@
-Status: Rascunho
+Status: Aprovado em 2026-10-18 por Diêgo
 
-# Requirements — 02-devops-gitops
+# Requisitos — DevOps e GitOps
 
-## 1. Contexto
+## Contexto
 
-Esta spec cobre a infraestrutura de entrega do encurtador de links: orquestração Kubernetes,
-pipeline CI/CD via GitHub Actions e implantação GitOps via ArgoCD. Ela não define o comportamento
-da aplicação em si (coberto em `01-nucleo-funcional`), mas define como os três componentes
-(frontend, API, banco) são empacotados, entregues e mantidos em execução no cluster.
+Esta spec cobre a entrega do encurtador: Kubernetes, pipeline no GitHub Actions e implantação via ArgoCD. O comportamento da API está na spec `01-backend-api`, e a stack de observabilidade na `04-observabilidade`. Os manifests da observabilidade também moram em `k8s/` e passam pelo mesmo GitOps.
 
-A spec de observabilidade (OpenTelemetry + Grafana) será tratada em `03-observabilidade`,
-mas esta spec deve garantir que os manifests e a estrutura de diretórios já acomodam os
-recursos de observabilidade que serão adicionados posteriormente.
+A primeira versão foi escrita antes de existir backend e frontend, com YAML puro, dois workflows e probes em `/health`. Quando a API em Python ficou pronta, a estrutura foi revista e a spec foi atualizada para o formato que usamos de fato: kustomize, um pipeline único e probes `/healthz` e `/readyz`.
 
-## 2. Requisitos
+## Requisitos
 
-### R-K8S-01 — Execução dos três componentes no Kubernetes
-Os componentes frontend, API e banco de dados devem ser executados como workloads no cluster
-Kubernetes. Cada componente deve ter seu próprio Deployment (ou StatefulSet para o banco).
+### R-K8S-01 — Os três componentes no Kubernetes
 
-**Critérios de aceitação:**
-- Existe um Deployment (ou StatefulSet) para cada componente: frontend, api, banco.
-- Os Pods de cada componente sobem com status `Running`.
-- Os componentes conseguem se comunicar entre si dentro do cluster.
+Frontend, API e banco rodam no cluster, cada um com seu workload.
 
-### R-K8S-02 — Services para acesso interno e externo
-Cada componente deve ter um Service Kubernetes que permita acesso pelos outros componentes
-do cluster. O frontend e a API devem ser acessíveis externamente.
+Critérios de aceitação:
 
-**Critérios de aceitação:**
-- Existe um Service para cada componente.
-- O Service da API permite acesso interno pelo frontend.
-- O frontend é exposto externamente (via NodePort, LoadBalancer ou Ingress, conforme o ambiente).
-- A API é exposta externamente para testes e demo.
+- A API e o frontend têm um Deployment cada, com 2 réplicas.
+- O banco roda num StatefulSet com volume persistente, para os dados sobreviverem à recriação do pod.
+- Todos os pods sobem `Running` e `Ready`, e os componentes se encontram pelo nome do Service.
+
+### R-K8S-02 — Services e acesso externo
+
+Critérios de aceitação:
+
+- Cada componente tem um Service `ClusterIP`.
+- O banco não é exposto para fora do cluster.
+- Para a demo, o acesso de fora é por `kubectl port-forward`, com um script que abre todas as portas de uma vez.
+- Existe um Ingress pronto apontando para o frontend, que fica desligado até o cluster ter um Ingress Controller (depende da D-02).
 
 ### R-K8S-03 — ConfigMaps e Secrets
-Variáveis de configuração não sensíveis devem ser gerenciadas via ConfigMap. Credenciais e
-variáveis sensíveis devem ser gerenciadas via Secret, nunca embutidas nos manifestos ou imagens.
 
-**Critérios de aceitação:**
-- Existe pelo menos um ConfigMap com configurações da aplicação (ex.: URL da API, nome do banco).
-- Existe pelo menos um Secret para as credenciais do banco de dados.
-- Nenhuma credencial está exposta em texto claro nos manifestos versionados no repositório.
+Critérios de aceitação:
 
-### R-K8S-04 — Probes de saúde
-Todos os Deployments devem ter liveness probe e readiness probe configuradas. O banco pode
-ter apenas uma readiness probe inicial caso o tipo de probe não seja compatível com o driver.
+- As configurações não sensíveis da API (banco, pool, `BASE_URL`, tamanho do código e variáveis `OTEL_*`) ficam num ConfigMap.
+- Usuário e senha do banco ficam num Secret, lido pela API e pelo Postgres.
+- Nenhuma senha real fica no Git. Os Secrets versionados têm valores de exemplo e um comentário explicando como criar o Secret de verdade fora do repositório.
+- As configs da observabilidade viram ConfigMaps gerados pelo kustomize, com hash no nome, para o pod reiniciar sozinho quando a config muda.
 
-**Critérios de aceitação:**
-- Cada Deployment de aplicação (frontend, api) tem `livenessProbe` e `readinessProbe`.
-- As probes apontam para endpoints reais que serão implementados pela equipe de backend/frontend.
-- Os Pods só recebem tráfego após a readiness probe passar.
+### R-K8S-04 — Probes
+
+Critérios de aceitação:
+
+- A API tem `startupProbe` e `livenessProbe` em `/healthz` e `readinessProbe` em `/readyz`.
+- O orçamento do `startupProbe` é maior que a espera interna da API pelo banco (60s), para o kubelet não matar o pod no primeiro boot do Postgres.
+- O frontend tem liveness e readiness em `/healthz`, respondido pelo próprio nginx.
+- O banco tem liveness e readiness com `pg_isready`.
+- Com o banco fora do ar, os pods da API saem do balanceamento (readiness), mas não reiniciam (liveness).
 
 ### R-K8S-05 — Namespace dedicado
-Todos os recursos devem ser criados em um namespace próprio do projeto, não no namespace `default`.
 
-**Critérios de aceitação:**
-- Existe um manifesto de Namespace para o projeto.
-- Todos os recursos (Deployments, Services, ConfigMaps, Secrets) referenciam esse namespace.
+Critérios de aceitação:
 
-### R-CI-01 — Pipeline de CI: build e push de imagem (API)
-O GitHub Actions deve construir e publicar a imagem Docker da API sempre que houver push
-para a branch `main` com alterações no diretório `api/`.
+- Tudo roda no namespace `encurtador`, definido num manifest próprio e aplicado pelo kustomize.
 
-**Critérios de aceitação:**
-- O workflow é disparado por push na branch `main` com mudanças em `api/**`.
-- O workflow faz checkout do código, build da imagem Docker e push para o registry configurado.
-- O workflow falha se o build ou o push falharem.
-- A tag da imagem inclui o SHA do commit.
+### R-CI-01 — Testes antes do build
 
-### R-CI-02 — Pipeline de CI: build e push de imagem (Frontend)
-O GitHub Actions deve construir e publicar a imagem Docker do frontend sempre que houver push
-para a branch `main` com alterações no diretório `frontend/`.
+Critérios de aceitação:
 
-**Critérios de aceitação:**
-- O workflow é disparado por push na branch `main` com mudanças em `frontend/**`.
-- O workflow faz checkout do código, build da imagem Docker e push para o registry configurado.
-- O workflow falha se o build ou o push falharem.
-- A tag da imagem inclui o SHA do commit.
+- Todo push na `main` ou na `develop`, todo pull request e o disparo manual rodam os testes da API (pytest com Postgres) e do frontend (lint, stylelint, testes e build).
+- O pipeline valida os manifests renderizados pelo kustomize, incluindo a Application do ArgoCD, e a sintaxe do `docker-compose.yml`.
+- O build das imagens só roda se testes e validação passarem.
+- Pushes que mudam só documentação (`**.md`, `docs/`, `.kiro/`) não disparam o pipeline.
 
-### R-CI-03 — Atualização automática das tags de imagem nos manifests
-Após o build e push de uma imagem, o pipeline deve atualizar automaticamente a tag da imagem
-nos manifests Kubernetes do repositório e fazer commit dessa alteração, desencadeando o GitOps.
+### R-CI-02 — Build e publicação das imagens
 
-**Critérios de aceitação:**
-- Após o push de nova imagem, o arquivo de manifesto correspondente é atualizado com a nova tag.
-- O commit de atualização é registrado na branch `main` com mensagem padronizada.
-- O ArgoCD detecta a alteração e sincroniza o cluster.
+Critérios de aceitação:
 
-### R-CI-04 — Execução de testes no CI (ponto de integração)
-O pipeline de CI deve ter uma etapa de testes que executa os testes automatizados da API
-antes de construir e publicar a imagem. Se os testes falharem, o build não deve ser publicado.
+- O pipeline builda as imagens da API e do frontend em todos os eventos.
+- Só na `main` as imagens são publicadas no GHCR, com a tag do SHA curto do commit e `latest`.
+- O registry é autenticado pelo `GITHUB_TOKEN` do próprio Actions, sem secrets extras.
 
-**Critérios de aceitação:**
-- O workflow inclui um step de execução de testes.
-- O step de build/push só é executado se os testes passarem.
-- Enquanto os testes da API não existirem, o step pode ser um placeholder que retorna sucesso.
+### R-CI-03 — Atualização da tag no Git
 
-### R-GITOPS-01 — Repositório como fonte de verdade (ArgoCD)
-O ArgoCD deve monitorar o diretório `k8s/` do repositório e sincronizar o estado do cluster
-com o estado declarado nos manifests.
+Critérios de aceitação:
 
-**Critérios de aceitação:**
-- Existe um manifesto de Application do ArgoCD apontando para o diretório `k8s/` deste repositório.
-- O ArgoCD detecta alterações nos manifests e sincroniza automaticamente (auto-sync habilitado).
-- O status de sincronização pode ser verificado na interface do ArgoCD.
+- Depois de publicar, o pipeline grava a nova tag em `k8s/kustomization.yaml` e faz o commit na `main`, com `[skip ci]` para não disparar outro pipeline.
+- Se o push for rejeitado porque a `main` andou, o pipeline faz rebase e tenta de novo.
 
-### R-GITOPS-02 — Organização dos manifests Kubernetes
-Os manifests Kubernetes devem ser organizados em subdiretórios por componente dentro de `k8s/`,
-facilitando o rastreamento e a manutenção.
+### R-GITOPS-01 — Git como fonte da verdade
 
-**Critérios de aceitação:**
-- Existe um subdiretório para cada componente: `k8s/api/`, `k8s/frontend/`, `k8s/database/`.
-- Existe um diretório para recursos compartilhados ou de namespace: `k8s/base/`.
-- Cada subdiretório contém os manifests pertinentes ao componente correspondente.
+Critérios de aceitação:
 
-### R-GITOPS-03 — Implantação via ArgoCD sem acesso manual ao cluster
-O processo normal de deploy deve ocorrer exclusivamente pela atualização dos manifests no
-repositório, sem a necessidade de executar `kubectl apply` manualmente.
+- Existe uma Application do ArgoCD apontando para `k8s/` na `main`.
+- O sync é automático, com `prune` (o que sai do Git sai do cluster) e `selfHeal` (mudança manual no cluster é desfeita).
+- O status pode ser acompanhado na interface do ArgoCD.
+- A instalação do ArgoCD é feita por um script com versão fixa.
 
-**Critérios de aceitação:**
-- Uma alteração de imagem no manifesto propagada pelo CI/CD resulta em um novo Pod sendo
-  criado no cluster sem intervenção manual.
-- O processo é demonstrável ao vivo durante o pitch.
+### R-GITOPS-02 — Organização dos manifests
 
-## 3. Restrições e dependências
+Critérios de aceitação:
 
-- A escolha do registry de imagens (D-10) e do ambiente Kubernetes (D-02) ainda estão pendentes
-  no SSOT. Os manifests e workflows devem usar placeholders ou variáveis de ambiente/secrets do
-  GitHub para esses valores, de forma que possam ser configurados sem alterar o código.
-- Os endpoints de health check das probes dependem da implementação da API e do frontend
-  (spec `01-nucleo-funcional`). Os manifests devem usar paths convencionados
-  (`/healthz` ou `/health`) que serão implementados pelos responsáveis por cada componente.
-- A organização GitOps (D-07) é decidida nesta spec.
-- Esta spec não cobre a configuração detalhada de OpenTelemetry e Grafana (spec `03-observabilidade`),
-  mas deve garantir que o namespace e os diretórios de manifests acomodem esses recursos.
+- `k8s/` tem uma pasta por componente (`api/`, `frontend/`, `database/`), uma para recursos comuns (`base/`) e uma para a observabilidade (`observability/`).
+- `k8s/kustomization.yaml` é o único ponto de entrada.
 
-## 4. Ambiguidades e decisões pendentes
+### R-GITOPS-03 — Deploy sem `kubectl` manual
 
-| ID    | Questão                                                      | Estado   |
-|-------|--------------------------------------------------------------|----------|
-| D-02  | Ambiente Kubernetes (local/kind/cluster do bootcamp)         | Pendente |
-| D-07  | Organização do repositório GitOps (mono-repo ou repo separado) | Pendente |
-| D-10  | Registry de imagens (GHCR, Docker Hub, ECR etc.)             | Pendente |
-| Q-01  | A exposição externa usará Ingress, NodePort ou LoadBalancer? | Pendente |
-| Q-02  | O banco de dados usa StatefulSet com PVC ou solução gerenciada? | Pendente |
-| Q-03  | O ArgoCD já está instalado no cluster do bootcamp?           | Pendente |
+Critérios de aceitação:
+
+- Um merge na `main` termina com pods novos rodando a nova tag, sem ninguém aplicar nada à mão.
+- O fluxo pode ser mostrado ao vivo na demo.
+
+### R-LOCAL-01 — Rodar fora do cluster
+
+Critérios de aceitação:
+
+- `docker compose up` sobe a stack inteira (banco, API, frontend e observabilidade) usando os mesmos arquivos de config do Kubernetes.
+- Um script sobe um cluster kind local com as imagens buildadas na máquina, como plano B da demo.
+
+## Decisões relacionadas
+
+| ID | Assunto | Situação |
+|---|---|---|
+| D-02 | Ambiente Kubernetes | Pendente. Hoje usamos kind local com ArgoCD |
+| D-07 | Monorepo com `k8s/kustomization.yaml` como fonte do ArgoCD | Proposta |
+| D-10 | GHCR como registry | Proposta |
+
+O estado oficial fica na tabela do `SSOT.md`.

@@ -1,195 +1,172 @@
-# Guia de Desenvolvimento da Equipe com Spec-Driven Development (SDD)
+# Como a equipe trabalha (Spec-Driven Development)
 
-**Para quem é este documento?**  <br>
-Para as pessoas do grupo. Ele explica como trabalhamos com o Kiro, o que cada um faz em cada etapa e como revisamos e registramos o trabalho. <br>
-As regras de comportamento do agente ficam em `.kiro/steering/sdd-workflow.md`. As decisões e o escopo ficam no `SSOT.md`.
+Este guia é para as pessoas do grupo: como usamos o Kiro, o que cada um faz em cada etapa e como revisamos e registramos o trabalho. As regras para o próprio Kiro ficam em `.kiro/steering/sdd-workflow.md`, e o escopo e as decisões no `SSOT.md`.
 
 ## 1. O que é SDD e por que usamos
 
-No Spec-Driven Development, **primeiro combinamos o que será feito (a especificação) e só depois implementamos**. O Kiro ajuda a escrever a especificação e a implementar, mas quem decide e aprova somos nós.
+Primeiro combinamos o que vai ser feito (a spec) e só depois implementamos. O Kiro ajuda a escrever e a implementar, mas quem decide e aprova somos nós.
 
-O que ganhamos com isso:
+O que a gente ganha:
 
-- Menos retrabalho: erros de entendimento aparecem no papel, antes de virar código.
-- Componentes que combinam entre si (frontend, API e banco seguem o mesmo contrato).
-- Rastreabilidade: dá para explicar por que cada coisa existe, o que ajuda no pitch.
-- Evidência do uso do Kiro, que faz parte da avaliação.
-
-A ideia central é que o Kiro vai propor e nós revisamos, vendo se está ok ou se mudanças são necessárias.
+- menos retrabalho, porque erro de entendimento aparece no papel antes de virar código;
+- frontend, API e banco seguindo o mesmo contrato;
+- dá para explicar por que cada coisa existe, o que ajuda no pitch;
+- evidência do uso do Kiro, que faz parte da avaliação.
 
 ## 2. Onde está cada coisa
 
 | Arquivo | Para quê |
 |---|---|
-| `SSOT.md` | Escopo, requisitos do hackathon, prioridades e registro de decisões. Em caso de conflito, é a referência |
-| `.kiro/steering/` | Instruções permanentes para o Kiro (produto, tecnologia, estrutura e regras do fluxo SDD) |
-| `.kiro/specs/<nome>/` | Uma pasta por funcionalidade, com `requirements.md`, `design.md` e `tasks.md` |
-| `docs/kiro-log.md` | Registro das sessões relevantes com o Kiro |
+| `SSOT.md` | Escopo, requisitos do hackathon, prioridades e decisões. Em caso de conflito, vale o que está aqui |
+| `.kiro/steering/` | Instruções permanentes para o Kiro: produto, tecnologia, estrutura e fluxo SDD |
+| `.kiro/specs/<nome>/` | Uma pasta por área (`01-backend-api`, `02-devops-gitops`, `04-observabilidade`), com `requirements.md`, `design.md` e `tasks.md` |
+| `openapi.yaml` e `docs/otel-metrics-spec.md` | Contratos da API e da telemetria |
+| `docs/kiro-log.md` | Registro das sessões relevantes com o Kiro e outras IAs |
+| `docs/devops-integration-guide.md` | Como uma mudança chega ao cluster e o que tocar em cada caso |
+| `docs/validacao-sre.md` | Relatório da validação de ponta a ponta |
 | Este documento | Como a equipe trabalha |
 
 ## 3. O ciclo de uma spec
 
 ```
-Requisitos → Design → Tarefas → Implementação → Verificações e revisão
-      aprovação em cada etapa antes de avançar 
+Requisitos → Design → Tarefas → Implementação → Verificação
+       (aprovação em cada etapa antes de avançar)
 ```
 
-Uma pessoa conduz a spec (conversa com o Kiro) e o restante do grupo revisa e aprova. Os prompts abaixo são pontos de partida, podem adaptar se necessário.
+Uma pessoa conduz a spec com o Kiro e o resto do grupo revisa e aprova.
 
-### Etapa 1 — Requisitos
+### Requisitos
 
-**O que fazemos:** pedimos ao Kiro uma proposta de `requirements.md` e a revisamos.
+Pedimos ao Kiro uma proposta de `requirements.md` baseada no SSOT, com as ambiguidades e decisões pendentes listadas à parte, e paramos aí até revisar.
 
-**Exemplo de prompt:**
-> Siga o `sdd-workflow.md`. Crie a spec `<nome>`, começando apenas pelo `requirements.md`, com base no SSOT. Liste ambiguidades e decisões pendentes. Não avance para o design.
+Na revisão:
 
-**Checklist de revisão:**
-- [ ] Os requisitos refletem o que queremos, sem funcionalidades inventadas?
-- [ ] Cada critério de aceitação é verificável (dá para provar que foi cumprido)?
-- [ ] Erros e casos extremos estão cobertos (ex.: URL inválida, código inexistente)?
-- [ ] Sugestões opcionais estão separadas dos requisitos obrigatórios?
+- [ ] Os requisitos são o que queremos, sem funcionalidade inventada?
+- [ ] Cada critério de aceitação dá para provar?
+- [ ] Erros e casos extremos estão cobertos (URL inválida, código inexistente, link expirado)?
+- [ ] Sugestões opcionais estão separadas dos requisitos?
 - [ ] Nada contradiz o SSOT?
-- [ ] As ambiguidades levantadas pelo Kiro foram respondidas ou registradas como decisão pendente?
+- [ ] As ambiguidades foram respondidas ou registradas como decisão pendente?
 
-### Etapa 2 — Design
+### Design
 
-**O que fazemos:** com os requisitos aprovados, pedimos o `design.md`. É aqui que o Kiro costuma propor tecnologias, e nós decidimos (ver §6).
+Com os requisitos aprovados, pedimos o `design.md`. É aqui que o Kiro costuma propor tecnologia. Onde houver decisão em aberto, ele deve trazer alternativas, prós e contras e uma recomendação, e nós decidimos (ver seção 6).
 
-**Exemplo de prompt:**
-> Os requisitos foram aprovados. Elabore o `design.md`. Onde houver decisão técnica pendente, apresente alternativas, prós e contras e uma recomendação, sem assumir nenhuma como definitiva.
+Na revisão:
 
-**Checklist de revisão:**
 - [ ] O design atende a todos os requisitos aprovados?
-- [ ] As escolhas técnicas são viáveis para o nosso prazo e ambiente?
+- [ ] As escolhas cabem no nosso prazo e no nosso ambiente?
 - [ ] Os contratos entre frontend, API e banco estão claros?
-- [ ] Há impacto em outras specs (API, frontend, observabilidade, manifests)? Foi apontado?
+- [ ] O impacto em outras specs (API, frontend, observabilidade, manifests) foi apontado?
 - [ ] Nenhuma decisão pendente foi tomada em silêncio?
 
-### Etapa 3 — Tarefas
+### Tarefas
 
-**O que fazemos:** com o design aprovado, pedimos o `tasks.md`.
+Com o design aprovado, pedimos o `tasks.md`: tarefas pequenas, com verificação, dependências e o que dá para fazer em paralelo.
 
-**Exemplo de prompt:**
-> O design foi aprovado. Elabore o `tasks.md` com tarefas pequenas e verificáveis, indicando dependências, verificações e quais tarefas podem ser feitas em paralelo.
+Na revisão:
 
-**Checklist de revisão:**
 - [ ] As tarefas cobrem todos os requisitos?
-- [ ] Cada tarefa é pequena o bastante para ser revisada de uma vez?
-- [ ] A ordem e as dependências fazem sentido?
-- [ ] Dá para dividir tarefas entre pessoas?
+- [ ] Cada uma é pequena o bastante para revisar de uma vez?
+- [ ] A ordem faz sentido?
+- [ ] Dá para dividir entre pessoas?
 
-### Etapa 4 — Implementação
+### Implementação
 
-**O que fazemos:** com os três documentos da spec aprovados, pedimos ao Kiro que execute **uma tarefa por vez** (ou um grupo pequeno de tarefas independentes), e acompanhamos as alterações.
+Aprovar o plano não gera código. A implementação é uma etapa à parte: quem conduz a spec pede ao Kiro que execute uma tarefa por vez (ou um grupo pequeno de tarefas independentes), e acompanha as alterações.
 
-**Aprovar o plano não gera o código sozinho.** Ao final da Etapa 3 temos apenas o plano. A implementação é uma etapa separada: quem conduz a spec pede ao Kiro que execute as tarefas. Para isso, o Kiro trabalha com base em:
+Antes de começar:
 
-- **A spec** (`requirements.md`, `design.md` e `tasks.md` aprovados): diz o que construir e como.
-- **O `SSOT.md`:** escopo, restrições e decisões já confirmadas.
-- **O `sdd-workflow.md`:** como o Kiro deve trabalhar (uma tarefa por vez, informar resultados, não afirmar sucesso sem evidência).
+- [ ] Os três documentos da spec estão com `Status: Aprovado`.
+- [ ] As decisões que a tarefa exige estão confirmadas no SSOT.
+- [ ] O ambiente tem o necessário para rodar e verificar (Docker, banco, kind). Se não tiver, a verificação vai ser manual e precisa ser registrada.
 
-Dependendo da versão, a interface do Kiro pode oferecer uma opção para iniciar cada tarefa a partir do `tasks.md`. Também é possível pedir por prompt, como no exemplo abaixo.
+Regras práticas:
 
-**Antes de começar:**
-- [ ] `requirements.md`, `design.md` e `tasks.md` estão com `Status: Aprovado`.
-- [ ] As decisões técnicas que a tarefa exige já estão **Confirmadas** no SSOT (seção 8).
-- [ ] O ambiente tem o que for necessário para executar e verificar a tarefa (ferramentas, banco, Docker etc.). Se não tiver, a verificação será manual e deve ser registrada.
+- Nada de pedir "implemente tudo" de uma vez.
+- Cada spec gera só o que é do seu escopo. A spec do backend não mexe em manifests nem no pipeline, por exemplo.
+- Leia o diff antes de aceitar.
+- Se a tarefa precisar de algo que não está na spec, pare e atualize a spec primeiro (seção 7).
+- Tarefa concluída é tarefa verificada, não código gerado.
 
-**Exemplo de prompt:**
-> Siga o `sdd-workflow.md` e leia o `SSOT.md`. Execute a tarefa `<número>` da spec `<nome>`, com base no `requirements.md` e no `design.md` aprovados. Implemente somente o escopo dela, execute as verificações disponíveis e informe os arquivos alterados e os resultados.
+### Verificação
 
-**Regras práticas:**
-- Não peça "implemente tudo" em um único prompt.
-- Cada spec gera apenas o que está no seu escopo. Por exemplo, a spec do núcleo gera API, banco e frontend, mas não manifests do Kubernetes nem pipeline, que entram em specs próprias.
-- Leia o diff antes de aceitar as alterações.
-- Se a tarefa exigir algo que não está na spec, pare e atualize a spec primeiro (ver §7).
-- Uma tarefa só está concluída quando foi **verificada**, não quando o código foi gerado.
+Conferimos se a implementação atende aos critérios de aceitação. Cada critério precisa de uma verificação:
 
-### Etapa 5 — Verificações e revisão
+- **Automatizada:** pytest da API, testes e lint do frontend e validação dos manifests. Tudo isso roda no GitHub Actions em todo PR e todo push na `develop` e na `main`. PR com verificação falhando não entra.
+- **Manual registrada:** o que não dá para automatizar, principalmente infra: pods saudáveis, ArgoCD sincronizado, trace atravessando os componentes no Grafana. Quem verificou anota o resultado no `kiro-log` (ou num relatório, como o `validacao-sre.md`).
 
-**O que fazemos:** conferimos se a implementação atende aos critérios de aceitação da spec.
+Na revisão:
 
-**O que são verificações:** são as provas de que um critério de aceitação foi cumprido. Cada critério deve ser coberto por uma verificação, que pode ser:
-
-- **Automatizada:** testes de código (unitários, de integração), rodados localmente ou pelo GitHub Actions. Exemplos: criar link com URL válida, receber 404 para código inexistente, dados persistirem após reiniciar a API.
-- **Manual registrada:** checagens feitas por uma pessoa e anotadas no `kiro-log`. É o caso típico de infraestrutura: pods saudáveis com as probes funcionando, pipeline verde, ArgoCD sincronizado, trace cruzando os três componentes no Grafana.
-
-**Quando e onde rodam:**
-- Durante uma tarefa: o Kiro executa localmente e informa os resultados, e a equipe confere.
-- A partir da spec 02: o GitHub Actions executa as verificações automatizadas em todo PR, e um PR com verificações falhando não deve ser integrado.
-- Na spec 01 não existe CI ainda, então tudo roda localmente. Por isso é importante pedir ao Kiro que execute e informe, em vez de assumir que funciona.
-
-**Checklist de revisão:**
-- [ ] As verificações foram **realmente executadas** e passaram? (Peça evidência, não apenas "está funcionando".)
+- [ ] As verificações foram executadas de verdade e passaram? Peça a evidência, não um "está funcionando".
 - [ ] O comportamento bate com os critérios de aceitação?
-- [ ] O código está alinhado com o design aprovado?
-- [ ] Não há alterações fora do escopo da tarefa?
+- [ ] O código segue o design aprovado?
+- [ ] Não há mudança fora do escopo da tarefa?
 - [ ] A documentação afetada foi atualizada?
 
-## 4. Como aprovamos cada etapa
+## 4. Como registramos a aprovação
 
-O Kiro conversa com uma pessoa por vez, então ele não consegue saber sozinho se o grupo aprovou algo. Por isso a aprovação precisa ficar registrada no próprio arquivo.
+O Kiro conversa com uma pessoa por vez e não tem como saber se o grupo aprovou algo. Por isso a aprovação fica no próprio arquivo, numa linha no topo de cada `requirements.md`, `design.md` e `tasks.md`:
 
-**Proposta de convenção**:
+```
+Status: Rascunho | Em revisão | Aprovado em AAAA-MM-DD por <nome>
+```
 
-- No topo de cada `requirements.md`, `design.md` e `tasks.md`, uma linha de status:
-  `Status: Rascunho | Em revisão | Aprovado em AAAA-MM-DD por <nome>`
+Quem aprova documentos e decisões é o Diêgo (SSOT, seção 10). O que cada status significa e quando o Kiro pode avançar está no `sdd-workflow.md`.
 
-- Os significados de cada status e as regras para o Kiro avançar de etapa estão definidos em `.kiro/steering/sdd-workflow.md`.
+## 5. Quando a IA erra ou discordamos dela
 
-## 5. Quando o Kiro erra ou discordamos dele
+Ela vai errar: requisito inventado, teste que não roda, escolha técnica duvidosa, commit levando arquivo errado. É esperado.
 
-O Kiro vai errar em algum momento: requisito inventado, verificação que não roda, escolha técnica duvidosa. Isso é normal e esperado.
-
-1. **Aponte o problema com clareza**, citando o trecho ou o requisito (ex.: "este requisito não está no SSOT, remova").
-2. **Peça a correção** e revise o resultado novamente.
-3. **Se o Kiro insistir em algo que o grupo rejeitou**, reforce no prompt e, se for uma regra duradoura, avalie acrescentá-la ao steering.
-4. **Registre no `kiro-log`** o que errou e como corrigimos. Isso conta a favor do grupo: mostra revisão crítica.
-5. **Em caso de dúvida técnica real**, consultem a documentação oficial ou outro integrante antes de seguir a sugestão do agente.
+1. Aponte o problema citando o trecho ou o requisito.
+2. Peça a correção e revise de novo.
+3. Se ela insistir em algo que o grupo rejeitou, reforce e, se for regra duradoura, coloque no steering.
+4. Registre no `kiro-log` o que errou e como corrigimos. Isso mostra revisão crítica e conta a favor.
+5. Em dúvida técnica de verdade, vá na documentação oficial ou pergunte a outra pessoa antes de seguir a sugestão.
 
 ## 6. Decisões do grupo
 
-Escolhas como linguagem da API, banco de dados e identidade do produto são **decisões do grupo**, não do Kiro.
+Linguagem da API, banco, identidade do produto: tudo isso é decisão do grupo, não do Kiro.
 
-- Cada decisão tem um ID e um estado na tabela do **SSOT, seção 8 (Registro/Estado de decisões)**.
-- Quando o Kiro propõe algo (normalmente no design), o grupo discute e atualiza a linha para **Confirmada**, com data, justificativa e quem aprovou.
-- Só depois disso o Kiro deve tratar a escolha como restrição. Se necessário, atualizem também o `tech.md` ou o `product.md`.
+- Cada decisão tem um ID e um estado na tabela do SSOT (seção 8).
+- Quando a IA propõe algo, o grupo discute e a linha vira **Confirmada**, com data, justificativa e quem aprovou.
+- Só depois disso a escolha passa a valer como restrição. Se fizer sentido, atualize também o `tech.md` ou o `product.md`.
 
 ## 7. Quando algo muda
 
-Se descobrirmos que um requisito está errado, incompleto ou precisa mudar:
-
 1. Identifique o requisito afetado e o motivo.
-2. Peça ao Kiro para listar os documentos e componentes impactados.
-3. Atualize **primeiro** requisitos, design e tarefas, conforme necessário.
-4. Revisem e aprovem as mudanças.
-5. Ajustem a implementação e executem as verificações novamente.
-6. Registrem a decisão no SSOT se o escopo ou a arquitetura mudou.
+2. Levante os documentos e componentes impactados (o Kiro ajuda nisso).
+3. Atualize primeiro requisitos, design e tarefas.
+4. Revisem e aprovem.
+5. Ajuste o código e rode as verificações de novo.
+6. Registre a decisão no SSOT se o escopo ou a arquitetura mudou.
 
-Correções internas que não alteram o comportamento especificado (refatorações, ajustes pequenos) não exigem refazer a spec inteira, mas ainda passam por revisão e verificações.
+Refatoração e ajuste pequeno que não mudam o comportamento não precisam refazer a spec, mas passam por revisão e testes.
+
+Na prática, nem sempre a spec vem antes. A troca da API de Node para Python (D-03) aconteceu no meio do projeto e a implementação andou na frente. Nesses casos, a spec é atualizada logo depois para descrever o que foi feito e volta para `Em revisão` até o grupo aprovar. O importante é ela não ficar desatualizada.
 
 ## 8. Definição de pronto
 
 Uma tarefa está pronta quando:
 
-- [ ] Os critérios de aceitação foram atendidos.
-- [ ] As verificações relevantes foram executadas e passaram (ou as limitações foram registradas).
-- [ ] A implementação está alinhada ao design aprovado.
-- [ ] Não há alterações fora do escopo nem decisões pendentes escondidas.
-- [ ] A documentação afetada foi atualizada.
-- [ ] Outra pessoa revisou.
-- [ ] O `kiro-log` foi atualizado, se a participação do Kiro foi relevante.
+- [ ] os critérios de aceitação foram atendidos;
+- [ ] as verificações rodaram e passaram (ou as limitações foram registradas);
+- [ ] a implementação segue o design aprovado;
+- [ ] não há mudança fora do escopo nem decisão pendente escondida;
+- [ ] a documentação afetada foi atualizada;
+- [ ] outra pessoa revisou;
+- [ ] o `kiro-log` foi atualizado, se a IA participou de forma relevante.
 
-Código que compila ou um agente que diz "terminei" não significa pronto.
+Código que compila ou um agente que diz "terminei" não é pronto.
 
-## 9. Registro do uso do Kiro
+## 9. Registro do uso de IA
 
-Depois de cada sessão relevante, quem a conduziu registra uma entrada em `docs/kiro-log.md` (modelo e exemplos estão no próprio arquivo). Esse registro vale pontos na avaliação e alimenta o pitch.
+Depois de cada sessão relevante, quem conduziu escreve uma entrada em `docs/kiro-log.md` (o modelo está lá). Registramos o que foi produzido, o que revisamos, o que verificamos e os erros. Os prompts não entram no registro.
 
-Registre o que realmente aconteceu: não afirme que a IA verificou ou decidiu algo que ela não fez.
+Escreva o que aconteceu de fato: não diga que a IA verificou ou decidiu algo que ela não fez.
 
-## 10. Princípio final
+## 10. Resumindo
 
-O objetivo do SDD não é produzir documentos, e sim manter ligadas **as decisões do grupo, a especificação, o código e as verificações**. A documentação deve ser proporcional ao que está sendo feito: sem implementar coisas importantes sem spec, e sem criar papelada que ninguém usa.
+O objetivo do SDD não é produzir documento. É manter ligados as decisões do grupo, a spec, o código e as verificações. Documentação na medida do trabalho: nada importante sem spec, e nada de papelada que ninguém usa.
 
-O Kiro acelera o trabalho e ajuda a achar problemas. O controle do produto, da arquitetura e da qualidade continua com o grupo.
+A IA acelera o trabalho e ajuda a achar problemas. O controle do produto, da arquitetura e da qualidade continua com a gente.

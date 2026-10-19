@@ -1,197 +1,170 @@
-﻿# Requirements Document
+Status: Aprovado em 2026-10-18 por Diêgo
 
-## Introduction
+# Requisitos — Backend API
 
-Este documento especifica os requisitos da API do encurtador de links, o componente responsável por criar códigos curtos, redirecionar usuários, persistir dados e expor métricas e traces de observabilidade.
+## Introdução
 
-A API residirá no diretório `api/` do repositório e deverá implementar todos os endpoints definidos em `openapi.yaml`, respeitando o schema definido em `db-schema.sql` e o contrato de telemetria definido em `otel-metrics-spec.md`.
+Esta spec trata da API do encurtador: criar links curtos, listar, redirecionar, guardar os dados no PostgreSQL e expor métricas e traces para a observabilidade.
 
-As decisões D-03 (tecnologia da API) e D-05 (banco de dados) ainda estão Pendentes no SSOT. Para efeito desta especificação, os requisitos assumem Node.js LTS com Express ou Fastify e PostgreSQL, conforme solicitação explícita do responsável pelo backend. Essa escolha deve ser confirmada pela equipe antes da implementação.
+A API mora em `api/`. O contrato HTTP está no `openapi.yaml`, o schema em `api/app/schema.sql` e o contrato de telemetria em `docs/otel-metrics-spec.md`. Quando houver diferença entre esta spec e esses arquivos, a gente corrige o que estiver errado antes de seguir.
 
----
+A primeira versão desta spec foi escrita pensando em Node.js com Fastify. Em 2026-10-16 o grupo trocou para Python (D-03) e a spec foi reescrita para refletir o que de fato construímos. A versão antiga continua no histórico do Git.
 
-## Glossary
+## Glossário
 
-- **API**: o serviço backend que implementa os endpoints definidos em `openapi.yaml`.
-- **Link**: o par formado por um código curto e a URL original correspondente, armazenado na tabela `links`.
-- **Código curto (short_code)**: identificador alfanumérico único que representa um link. Pode ser gerado aleatoriamente ou fornecido pelo usuário (vanity).
-- **Código vanity (custom_code)**: código curto definido explicitamente pelo usuário na criação do link.
-- **URL original**: a URL de destino completa para a qual o link curto redireciona.
-- **Link ativo**: link cujo campo `expires_at` é nulo ou é posterior ao momento atual, conforme a view `active_links` do schema.
-- **Link expirado**: link cujo campo `expires_at` é anterior ou igual ao momento atual.
-- **Repositório**: camada de acesso a dados que encapsula as consultas ao banco de dados.
-- **Pool de conexões**: conjunto gerenciado de conexões ao PostgreSQL reutilizadas entre requisições.
-- **Cache**: armazenamento em memória usado para evitar consultas repetidas ao banco no fluxo de redirecionamento.
-- **Cache-Aside**: estratégia em que a API consulta o cache antes do banco e popula o cache com o resultado caso ele esteja ausente.
-- **Módulo de telemetria (Telemetry_Module)**: módulo localizado em `api/src/telemetry/` que inicializa os instrumentos OpenTelemetry (métricas e traces) e os expõe para uso pelo restante da aplicação.
-- **Probe de liveness**: endpoint `GET /healthz` que indica se o processo da API está vivo.
-- **Probe de readiness**: endpoint `GET /readyz` que indica se a API está pronta para receber tráfego.
-- **click_event**: registro de um acesso a um link, armazenado na tabela `click_events`.
-- **QR Code**: imagem codificada gerada a partir da URL curta, retornada na criação do link como `qr_code_url`.
+- **API:** o serviço em Python 3.12 com FastAPI que implementa o `openapi.yaml`.
+- **Link:** um código curto e a URL original para onde ele aponta, guardados na tabela `links`.
+- **Código curto (`short_code`):** identificador do link. Pode ser gerado pela API ou escolhido por quem cria o link.
+- **Código personalizado (`custom_code`):** código escolhido pelo usuário na criação.
+- **Link ativo:** link sem `expires_at` ou com `expires_at` no futuro. A regra fica só na view `active_links`.
+- **Link expirado:** link com `expires_at` no passado. Ele continua no banco, mas não redireciona mais.
+- **Evento de clique:** uma linha em `click_events` gravada a cada redirect bem-sucedido.
+- **Repositório:** a classe `LinkRepository`, que concentra todo o SQL da aplicação.
+- **Módulo de telemetria:** `api/app/telemetry.py`, o único arquivo que conversa com o SDK do OpenTelemetry.
 
----
+## Requisitos
 
-## Requirements
+### Requisito 1 — Banco de dados e pool de conexões
 
-### Requisito 1 — Persistência e pool de conexões
+**História:** como desenvolvedor, quero que a API reutilize conexões com o Postgres e espere o banco subir, para não derrubar o banco nem a própria API no primeiro boot do cluster.
 
-**User Story:** Como desenvolvedor da equipe, quero que a API gerencie as conexões com o PostgreSQL por meio de um pool, para que as conexões sejam reutilizadas entre requisições e o banco não seja sobrecarregado.
+Critérios de aceitação:
 
-#### Critérios de aceitação
+1. A API DEVE usar um pool de conexões configurado por `DATABASE_URL` ou, se ela não existir, por `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER` e `DB_PASSWORD`. O tamanho vem de `DB_POOL_MIN` (padrão 1) e `DB_POOL_MAX` (padrão 10, limitado a 100).
+2. Todo o SQL DEVE ficar no repositório. Rotas não escrevem SQL.
+3. QUANDO a API iniciar, ela DEVE tentar `SELECT 1` no banco até conseguir ou até estourar `DB_STARTUP_TIMEOUT_SECONDS` (padrão 60s). Cada tentativa tem timeout de 5s.
+4. SE o banco não responder dentro desse prazo, ENTÃO a API DEVE registrar o erro e encerrar o processo com código diferente de zero, para o Kubernetes reiniciar o pod.
+5. QUANDO a API iniciar, ela DEVE aplicar o `schema.sql` de forma idempotente, protegida por um advisory lock, para que duas réplicas não migrem ao mesmo tempo.
+6. SE o banco cair durante uma requisição, ENTÃO a API DEVE responder 503 com `error: "database_unavailable"` e continuar no ar.
+7. O redirect DEVE consultar os links pela view `active_links`, nunca direto na tabela `links`.
 
-1. THE API SHALL gerenciar as conexões ao PostgreSQL por meio de um pool de conexões configurável pelas variáveis de ambiente `DATABASE_URL` (connection string completa) ou pelas variáveis individuais `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER` e `DB_PASSWORD`; o tamanho mínimo do pool é definido por `DB_POOL_MIN` (padrão 1) e o máximo por `DB_POOL_MAX` (padrão 10, máximo permitido 100).
-2. THE API SHALL encapsular todas as consultas ao banco em um repositório de links e em um repositório de eventos de clique, sem consultas SQL dispersas nas camadas de rota ou de serviço.
-3. WHEN a aplicação é inicializada, THE API SHALL verificar a conectividade com o PostgreSQL executando `SELECT 1` com timeout de 5 segundos antes de abrir o servidor HTTP para receber requisições.
-4. IF a conexão com o banco falhar durante a inicialização, THEN THE API SHALL registrar o erro no log e encerrar o processo com código de saída não-zero.
-5. IF o banco de dados se tornar inacessível durante o atendimento de uma requisição, THEN THE API SHALL retornar HTTP 503 e registrar o erro no log, sem encerrar o processo.
-6. THE API SHALL executar todas as consultas de leitura de links ativos e de redirecionamento exclusivamente por meio da view `active_links`, nunca diretamente na tabela `links`.
+### Requisito 2 — Criar link (`POST /api/links`)
 
----
+**História:** como usuário do frontend, quero encurtar uma URL, com a opção de escolher o código e uma data de expiração.
 
-### Requisito 2 — Cache de redirecionamento (Cache-Aside)
+Critérios de aceitação:
 
-**User Story:** Como usuário que acessa um link curto, quero que o redirecionamento seja respondido com baixa latência mesmo sob alta carga, para que minha navegação não seja interrompida.
+1. QUANDO receber uma `original_url` válida, a API DEVE gravar o link e responder 201 com `short_code`, `short_url`, `original_url`, `clicks`, `created_at` e `expires_at`.
+2. A `original_url` DEVE ser absoluta, com esquema `http` ou `https`, host preenchido e no máximo 2048 caracteres. SE não for, ENTÃO a resposta é 400 com `error: "invalid_url"`.
+3. SE `custom_code` vier no corpo, ENTÃO ele DEVE ter de 3 a 50 caracteres `[A-Za-z0-9_-]`. Fora disso, 400 com `error: "invalid_custom_code"`.
+4. SE `custom_code` for um caminho da própria aplicação (`api`, `r`, `healthz`, `readyz`, `metrics`, `docs`, `redoc`, `openapi.json`, sem diferenciar maiúsculas), ENTÃO a resposta é 400 com `error: "reserved_custom_code"`.
+5. SE `custom_code` já estiver em uso, ENTÃO a resposta é 409 com `error: "code_in_use"` e nada é gravado.
+6. QUANDO `custom_code` não vier, a API DEVE gerar um código aleatório com `SHORT_CODE_LENGTH` caracteres (padrão 7) do alfabeto `SHORT_CODE_ALPHABET` (padrão `a-z0-9`), tentando até 5 vezes em caso de colisão. SE todas colidirem, ENTÃO a resposta é 503 com `error: "code_generation_failed"`.
+7. SE `expires_at` vier e não estiver no futuro, ENTÃO a resposta é 400 com `error: "invalid_expires_at"`. Datas sem fuso são tratadas como UTC.
+8. QUANDO o link for criado, a API DEVE somar 1 em `kiro.links.created` com `kind="vanity"` (código personalizado) ou `kind="random"`.
 
-#### Critérios de aceitação
+### Requisito 3 — Listar links (`GET /api/links`)
 
-1. THE API SHALL implementar uma camada de cache Cache-Aside em memória para armazenar os resultados de consultas de redirecionamento, com tamanho máximo configurável pela variável de ambiente `CACHE_MAX_SIZE` (padrão 1000 entradas) e TTL padrão configurável pela variável `CACHE_DEFAULT_TTL_SECONDS` (padrão 300 segundos).
-2. WHEN o redirecionamento de um código curto é requisitado e o resultado está no cache, THE API SHALL retornar o resultado sem consultar o banco de dados.
-3. WHEN o redirecionamento de um código curto é requisitado e o resultado não está no cache, THE API SHALL consultar o banco via view `active_links`, armazenar o resultado no cache e retornar a resposta.
-4. IF um link possui `expires_at` definido, THEN THE API SHALL calcular o TTL da entrada no cache como `max(1, expires_at - agora)` em segundos, de forma que a entrada expire no máximo no mesmo instante que o link e nunca com TTL menor que 1 segundo.
-5. WHEN um código curto consultado não existe na tabela `links`, THE API SHALL armazenar no cache um marcador de ausência exclusivo para esse código com TTL fixo de 60 segundos.
-6. WHEN um código curto consultado existe na tabela `links` mas está expirado (não retornado pela view `active_links`), THE API SHALL tratar o resultado como expirado sem armazenar marcador de ausência, permitindo que o banco seja consultado novamente caso o contexto de expiração mude.
-7. IF o banco de dados estiver inacessível durante um cache miss, THEN THE API SHALL retornar HTTP 503 sem popular o cache.
+**História:** como usuário do frontend, quero ver os links já criados, do mais novo para o mais antigo.
 
----
+Critérios de aceitação:
 
-### Requisito 3 — Listagem de links (`GET /api/links`)
+1. A API DEVE responder 200 com `{ total, items }`, em que `total` é o número de links na tabela e cada item tem os mesmos campos da criação.
+2. A API DEVE aceitar `limit` (padrão 50, máximo 200) e `offset` (padrão 0).
+3. SE `limit` passar de 200 ou se `limit`/`offset` forem negativos ou não inteiros, ENTÃO a resposta é 400.
+4. Os itens DEVEM vir ordenados por `created_at` decrescente, com `id` decrescente como desempate.
+5. O campo `short_url` DEVE ser `{BASE_URL}/r/{short_code}`.
 
-**User Story:** Como usuário do frontend, quero listar todos os links criados com paginação, para que eu possa visualizar e navegar pelo histórico de links.
+### Requisito 4 — Redirecionar (`GET /r/{short_code}`)
 
-#### Critérios de aceitação
+**História:** como visitante, quero abrir um link curto e cair rápido no destino, ou ver uma mensagem clara quando o link não existe ou expirou.
 
-1. WHEN uma requisição `GET /api/links` é recebida, THE API SHALL retornar HTTP 200 com um objeto JSON contendo o campo `total` (inteiro representando o número total de links na tabela `links`) e o campo `items` (array de objetos, possivelmente vazio, com os campos `short_code`, `short_url`, `original_url`, `clicks`, `created_at` e `expires_at` para cada link, onde `expires_at` é `null` quando nenhuma expiração estiver definida).
-2. THE API SHALL aceitar os parâmetros de query `limit` (inteiro, padrão 50, máximo 200) e `offset` (inteiro, padrão 0) para paginação.
-3. IF o valor de `limit` fornecido exceder 200, THEN THE API SHALL retornar HTTP 400 com uma mensagem de erro indicando o limite máximo permitido.
-4. IF o valor de `limit` ou de `offset` fornecido não for um inteiro não-negativo, THEN THE API SHALL retornar HTTP 400 com uma mensagem de erro indicando qual parâmetro é inválido.
-5. THE API SHALL construir o campo `short_url` de cada link concatenando o base URL configurado pela variável de ambiente `BASE_URL` com o `short_code`.
-6. THE API SHALL retornar os links dentro do campo `items` ordenados por `created_at` descendente.
+Critérios de aceitação:
 
----
+1. QUANDO o código for de um link ativo, a API DEVE responder 302 com `Location` igual à `original_url` e `Cache-Control: no-store` (para o navegador não pular a contagem nos próximos acessos).
+2. A API DEVE aceitar também `GET /{short_code}`, com o mesmo comportamento, por compatibilidade com a primeira versão do contrato. Essa rota não aparece no OpenAPI.
+3. SE o código tiver formato inválido ou não existir, ENTÃO a resposta é 404 com `error: "not_found"`.
+4. SE o link existir mas estiver expirado, ENTÃO a resposta é 410 com `error: "expired"`.
+5. QUANDO o redirect acontecer, a API DEVE somar 1 em `clicks` e gravar um evento em `click_events` com `user_agent` e `referer`, na mesma operação no banco, para o contador e o log nunca divergirem.
+6. A API NÃO DEVE gravar o IP do visitante (LGPD). A coluna `ip_address` existe no schema, mas fica vazia.
+7. A API DEVE medir o tempo da consulta e da decisão no histograma `kiro.link.redirect.duration`, com `outcome` igual a `found`, `not_found` ou `expired`.
+8. QUANDO o redirect for bem-sucedido, a API DEVE somar 1 em `kiro.link.clicks`.
+9. QUANDO o redirect tiver `?via=qr`, a API DEVE somar 1 em `kiro.feature.used{feature="qrcode"}`. É assim que medimos os acessos vindos do QR Code (D-17).
+10. A API DEVE colocar o atributo `kiro.link.short_code` no span da requisição.
 
-### Requisito 4 — Criação de link curto (`POST /api/links`)
+### Requisito 5 — Estatísticas de um link (`GET /api/links/{short_code}/stats`)
 
-**User Story:** Como usuário do frontend, quero criar links curtos a partir de URLs longas, com a opção de definir um código personalizado e uma data de expiração, para que eu possa compartilhar e controlar os links criados.
+**História:** como usuário, quero ver quantos cliques um link teve e como eles se distribuíram nas últimas 24 horas.
 
-#### Critérios de aceitação
+Critérios de aceitação:
 
-1. WHEN uma requisição `POST /api/links` é recebida com `original_url` válida, THE API SHALL criar um registro na tabela `links` e retornar HTTP 201 com os campos `short_code`, `short_url` (no formato `{BASE_URL}/{short_code}`), `qr_code_url`, `created_at` e `expires_at`.
-2. THE API SHALL validar que `original_url` é uma URI absoluta com esquema `http` ou `https`; IF a validação falhar, THEN THE API SHALL retornar HTTP 400 com uma mensagem de erro descritiva.
-3. WHERE `custom_code` é fornecido no corpo da requisição, THE API SHALL validar que o valor contém apenas caracteres alfanuméricos, hífens e underscores, com comprimento entre 3 e 50 caracteres; IF a validação falhar, THEN THE API SHALL retornar HTTP 400 com uma mensagem de erro descritiva.
-4. WHERE `custom_code` é fornecido e já existe na tabela `links`, THE API SHALL retornar HTTP 409 com um corpo JSON contendo uma mensagem de erro indicando que o código já está em uso, sem criar um novo registro.
-5. WHERE `custom_code` não é fornecido, THE API SHALL gerar um código curto aleatório com comprimento configurável pela variável `SHORT_CODE_LENGTH` (padrão 7) e alfabeto configurável por `SHORT_CODE_ALPHABET` (padrão: letras minúsculas + dígitos), realizando até 5 tentativas de geração para garantir unicidade; IF todas as tentativas colidirem, THEN THE API SHALL retornar HTTP 503 sem persistir nenhum registro.
-6. WHERE `expires_at` é fornecido no corpo da requisição, THE API SHALL validar que o valor é uma data-hora ISO 8601 estritamente posterior ao instante de recebimento da requisição; IF a validação falhar, THEN THE API SHALL retornar HTTP 400 com uma mensagem de erro descritiva.
-7. WHEN um link é criado com sucesso, THE API SHALL incrementar o contador `kiro.links.created` com o atributo `kind` igual a `vanity` se `custom_code` foi fornecido, ou `random` caso contrário.
-8. WHEN um link é criado com sucesso, THE API SHALL construir e retornar o campo `qr_code_url` no formato `{BASE_URL}/qr/{short_code}`.
+1. QUANDO o código existir, a API DEVE responder 200 com os campos do link e `last_24h`, uma lista de `{ hour, clicks }`.
+2. A consulta DEVE ir na tabela `links`, não na view, para que links expirados também tenham estatísticas.
+3. SE o código não existir, ENTÃO a resposta é 404. SE o formato for inválido, ENTÃO a resposta é 400.
+4. Cada consulta bem-sucedida DEVE somar 1 em `kiro.feature.used{feature="stats"}`.
 
----
+### Requisito 6 — Ranking (`GET /api/ranking`)
 
-### Requisito 5 — Redirecionamento (`GET /{shortCode}`)
+**História:** como equipe, queremos saber quais links foram mais clicados num período, para mostrar o "link do dia".
 
-**User Story:** Como usuário que acessa um link curto, quero ser redirecionado para a URL original de forma rápida e correta, com tratamento adequado para links inexistentes ou expirados.
+Critérios de aceitação:
 
-#### Critérios de aceitação
+1. A API DEVE responder 200 com `{ hours, items }`, cada item com `position`, `short_code`, `short_url`, `original_url` e `clicks` contados em `click_events` dentro da janela.
+2. A API DEVE aceitar `hours` (padrão 24, de 1 a 720) e `limit` (padrão 10, de 1 a 50). Fora disso, 400 com `error: "invalid_ranking"`.
+3. Cada consulta DEVE somar 1 em `kiro.feature.used{feature="ranking"}`.
 
-1. WHEN uma requisição `GET /{shortCode}` é recebida com um `shortCode` de comprimento entre 3 e 50 caracteres contendo apenas caracteres alfanuméricos, hífens e underscores, e o código corresponde a um link ativo, THE API SHALL retornar HTTP 302 com o header `Location` apontando para a `original_url` do link.
-2. WHEN uma requisição `GET /{shortCode}` é recebida e o código não existe na tabela `links`, THE API SHALL retornar HTTP 404 com um corpo JSON contendo uma mensagem de erro indicando que o código não foi encontrado.
-3. WHEN uma requisição `GET /{shortCode}` é recebida e o link existe mas está expirado, THE API SHALL retornar HTTP 410 com um corpo JSON contendo uma mensagem de erro indicando que o link expirou.
-4. WHEN um redirect 302 é emitido, THE API SHALL incrementar a coluna `clicks` na tabela `links` para o link correspondente de forma atômica.
-5. WHEN um redirect 302 é emitido, THE API SHALL disparar a inserção de um `click_event` na tabela `click_events` de forma assíncrona e não-bloqueante, incluindo `link_id`, `clicked_at`, `user_agent` (do header `User-Agent`) e `ip_address` (do IP remoto da conexão); IF a inserção assíncrona falhar, THEN THE API SHALL registrar o erro no log sem afetar a resposta HTTP ao usuário.
-6. WHEN uma requisição `GET /{shortCode}` é recebida, THE API SHALL registrar a duração da operação (do início da busca até a decisão de resposta) no histograma `kiro.link.redirect.duration` com o atributo `outcome` igual a `found`, `not_found` ou `expired`, conforme o resultado.
-7. WHEN um redirect 302 é emitido, THE API SHALL incrementar o contador `kiro.link.clicks` sem atributos adicionais.
-8. THE API SHALL incluir o atributo de span `kiro.link.short_code` no span do servidor correspondente à requisição de redirecionamento.
-9. IF o incremento de `clicks` na tabela `links` falhar por erro de banco de dados, THEN THE API SHALL retornar HTTP 502 e registrar o erro no log.
+### Requisito 7 — Probes (`GET /healthz` e `GET /readyz`)
 
----
+**História:** como operador do cluster, quero saber se o processo está vivo e se ele já pode receber tráfego.
 
-### Requisito 6 — Estatísticas de link (`GET /api/links/{shortCode}/stats`)
+Critérios de aceitação:
 
-**User Story:** Como usuário do frontend, quero consultar as estatísticas de um link específico, para que eu possa acompanhar o número de acessos e as informações associadas.
+1. `GET /healthz` DEVE responder 200 com `{"status": "ok"}` sem consultar o banco nem qualquer outra dependência.
+2. `GET /readyz` DEVE responder 200 com `{"status": "ok", "db": "ok"}` quando o banco responder ao `SELECT 1` em até 2s.
+3. SE o banco não responder ou der erro, ENTÃO `GET /readyz` DEVE responder 503 com `{"status": "error", "db": "unavailable"}`.
+4. As probes NÃO DEVEM gerar spans nem entrar nas métricas HTTP. Elas são chamadas a cada poucos segundos e só poluiriam os traces.
 
-#### Critérios de aceitação
+### Requisito 8 — Métricas (`GET /metrics`)
 
-1. WHEN uma requisição `GET /api/links/{shortCode}/stats` é recebida e o código existe na tabela `links`, THE API SHALL retornar HTTP 200 com um objeto JSON contendo os campos `short_code`, `original_url`, `clicks`, `created_at` e `expires_at` (null se não definido).
-2. WHEN uma requisição `GET /api/links/{shortCode}/stats` é recebida e o código não existe na tabela `links`, THE API SHALL retornar HTTP 404 com um corpo JSON contendo uma mensagem de erro indicando que o código não foi encontrado.
-3. THE API SHALL consultar a tabela `links` diretamente (não a view `active_links`) para o endpoint de stats, de forma que links expirados também retornem suas estatísticas.
-4. IF o valor de `shortCode` no caminho da requisição não satisfizer o formato definido (comprimento entre 3 e 50 caracteres, apenas alfanuméricos, hífens e underscores), THEN THE API SHALL retornar HTTP 400 com uma mensagem de erro descritiva.
+**História:** como SRE, quero que o Prometheus colete as métricas da API sem passar pelo Collector.
 
----
+Critérios de aceitação:
 
-### Requisito 7 — Probe de liveness (`GET /healthz`)
+1. `GET /metrics` DEVE responder no formato texto do Prometheus, sem autenticação.
+2. A API DEVE expor `kiro_link_redirect_duration_seconds`, `kiro_link_clicks_total`, `kiro_links_created_total`, `kiro_feature_used_total` e `kiro_active_links`, além do histograma automático `http_server_request_duration_seconds`.
+3. O rótulo `http_route` DEVE ter o template da rota (`/r/{short_code}`), nunca o caminho real.
+4. Nenhuma métrica DEVE usar como rótulo o código curto, a URL, o IP ou o user agent.
+5. `kiro_active_links` DEVE ser um gauge observável que conta a view `active_links` a cada coleta.
+6. O histograma do redirect DEVE usar os buckets `[0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0]` segundos.
 
-**User Story:** Como operador do cluster Kubernetes, quero um endpoint de liveness que responda imediatamente, para que o kubelet possa detectar se o processo da API está travado ou morto.
+### Requisito 9 — Traces
 
-#### Critérios de aceitação
+**História:** como SRE, quero que um trace comece no navegador e chegue até a consulta no banco.
 
-1. WHEN uma requisição `GET /healthz` é recebida, THE API SHALL retornar HTTP 200 com um corpo JSON `{"status": "ok"}` sem realizar nenhuma verificação de dependências externas (banco de dados, cache ou outros serviços).
-2. THE API SHALL responder ao `GET /healthz` em menos de 100 ms independentemente do estado do banco de dados ou de qualquer outra dependência externa.
+Critérios de aceitação:
 
----
+1. Toda a configuração do OpenTelemetry DEVE ficar em `api/app/telemetry.py`. O resto do código chama funções simples desse módulo e não importa o SDK.
+2. A telemetria DEVE ser ligada antes de a API começar a atender.
+3. A API DEVE continuar o trace recebido no cabeçalho `traceparent` (W3C Trace Context) e criar spans do banco como filhos do span da requisição.
+4. `service.name`, endpoint do Collector, propagadores e sampler DEVEM vir das variáveis `OTEL_SERVICE_NAME` (padrão `kiro-api`), `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_PROPAGATORS` e `OTEL_TRACES_SAMPLER`.
+5. SE `OTEL_EXPORTER_OTLP_ENDPOINT` não estiver definida, ENTÃO a API DEVE funcionar normalmente, só sem exportar spans (é o caso dos testes).
+6. Os spans de servidor DEVEM ter o nome do método mais o template da rota, por exemplo `GET /r/{short_code}`.
 
-### Requisito 8 — Probe de readiness (`GET /readyz`)
+### Requisito 10 — Empacotamento e ambiente local
 
-**User Story:** Como operador do cluster Kubernetes, quero um endpoint de readiness que verifique a conectividade com o banco de dados, para que o kubelet não encaminhe tráfego para um pod que ainda não está pronto para servir requisições.
+**História:** como desenvolvedor, quero subir API e banco com um comando e rodar os testes sem instalar Postgres na máquina.
 
-#### Critérios de aceitação
+Critérios de aceitação:
 
-1. WHEN uma requisição `GET /readyz` é recebida e o banco de dados responde ao `SELECT 1` dentro de 2 segundos, THE API SHALL retornar HTTP 200 com um corpo JSON `{"status": "ok", "db": "ok"}`.
-2. IF o banco de dados não responder ao `SELECT 1` dentro de 2 segundos ou retornar erro, THEN THE API SHALL retornar HTTP 503 com um corpo JSON `{"status": "error", "db": "unavailable"}`.
-3. WHEN o timeout de 2 segundos for atingido na verificação do banco, THE API SHALL cancelar a query pendente e retornar HTTP 503 imediatamente.
+1. A API DEVE ter um `api/Dockerfile` multi-stage, com a imagem final sem ferramentas de build e rodando com usuário sem root (UID 10001).
+2. O `docker-compose.yml` na raiz DEVE subir banco e API (e a stack de observabilidade). O schema é aplicado pela própria API, sem script de init no Postgres.
+3. QUANDO o `docker compose up` terminar, `/healthz` e `/readyz` DEVEM responder 200 em até 60 segundos.
+4. Nenhum arquivo versionado DEVE ter senha real. O compose usa valores de exemplo.
+5. O compose DEVE ter um profile `test` que sobe um banco descartável e roda o pytest em Python 3.12, a mesma versão da imagem.
 
----
+## Fora do escopo
 
-### Requisito 9 — Exposição de métricas Prometheus (`GET /metrics`)
+Coisas que estavam na primeira versão e o grupo decidiu não fazer:
 
-**User Story:** Como SRE responsável pela observabilidade, quero que a API exponha as métricas no formato Prometheus, para que o Prometheus possa coletar os dados e alimentar os dashboards do Grafana.
+- **Cache de redirect em memória.** Com duas réplicas, cada uma teria seu cache e a invalidação ficaria complicada para o prazo. O que resolveu a latência foi o `synchronous_commit off` no clique (ver design).
+- **Campo `qr_code_url` e endpoint `/qr/{code}`.** O QR Code é gerado no navegador (D-17), então a API não precisa saber dele. Ela só conta os acessos com `?via=qr`.
+- **Resposta 502 quando o incremento de cliques falha.** Clique e evento são gravados numa única instrução; se ela falhar, é falha de banco e a resposta é 503, como nas outras rotas.
+- **Gravação do IP no clique.** Decidimos não guardar por causa da LGPD.
 
-#### Critérios de aceitação
+## Decisões relacionadas
 
-1. WHEN uma requisição `GET /metrics` é recebida, THE API SHALL retornar HTTP 200 com as métricas no formato texto do Prometheus (`Content-Type: text/plain; version=0.0.4`).
-2. THE API SHALL expor as seguintes métricas manuais: `kiro_link_redirect_duration_seconds` (Histogram), `kiro_link_clicks_total` (Counter), `kiro_links_created_total` (Counter) e `kiro_active_links` (Gauge observável).
-3. THE API SHALL expor a métrica automática `http_server_request_duration_seconds` (Histogram) com os atributos `http_request_method`, `http_route` e `http_response_status_code`.
-4. THE API SHALL usar o template da rota como valor de `http_route` (por exemplo, `/{shortCode}`), nunca o valor real do caminho (por exemplo, `/abc123`).
-5. THE API SHALL proibir o uso de `short_code`, URL original, IP ou `user_agent` como atributos ou labels de qualquer métrica.
-6. THE Gauge `kiro_active_links` SHALL ser atualizado por meio de um callback observável que executa `SELECT count(*) FROM active_links` a cada coleta pelo Prometheus.
-7. THE Histogram `kiro_link_redirect_duration_seconds` SHALL ser configurado com os buckets `[0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0]` em segundos.
+- D-03 (Python, FastAPI e psycopg 3) e D-05 (PostgreSQL 16): confirmadas.
+- D-06 (formato do código e rota `/r/{code}`) e D-11 (contrato usado pelo frontend): propostas, aguardando aprovação.
+- D-17 (QR Code): proposta.
 
----
-
-### Requisito 10 — Módulo de telemetria e traces distribuídos
-
-**User Story:** Como SRE responsável pela observabilidade, quero que a API inicialize a telemetria por meio de um módulo único e encapsulado, para que a configuração de traces e métricas seja centralizada e substituível sem alterar o código de negócio.
-
-#### Critérios de aceitação
-
-1. THE API SHALL concentrar a inicialização de todos os instrumentos OpenTelemetry (SDK, exporters, métricas e traces) em um módulo único localizado em `api/src/telemetry/`.
-2. THE Telemetry_Module SHALL ser inicializado antes de o servidor HTTP abrir para receber requisições; nenhuma requisição deve ser atendida sem que a instrumentação esteja ativa.
-3. THE API SHALL propagar o contexto de trace usando o protocolo W3C Trace Context (`traceparent`, `tracestate`); as chamadas ao banco de dados devem gerar spans filhos do span pai da requisição em curso.
-4. THE API SHALL configurar `service.name` como `kiro-api` por meio da variável de ambiente `OTEL_SERVICE_NAME`.
-5. THE API SHALL exportar os dados de telemetria para o endpoint definido pela variável de ambiente `OTEL_EXPORTER_OTLP_ENDPOINT`, sem fixar o endereço no código.
-6. THE API SHALL configurar o sampler de traces com o valor da variável de ambiente `OTEL_TRACES_SAMPLER` (padrão: `parentbased_always_on`).
-7. WHEN um endpoint é atendido, THE API SHALL criar spans de servidor com os nomes `POST /api/links`, `GET /{shortCode}` ou `GET /api/links`, conforme o endpoint atendido.
-8. WHEN o parâmetro `shortCode` é extraído com sucesso do caminho da requisição, THE API SHALL adicionar o atributo `kiro.link.short_code` ao span do servidor correspondente.
-9. THE Telemetry_Module SHALL expor os contadores e histogramas definidos no Requisito 9 por meio de uma interface própria, de forma que nenhum módulo de serviço importe símbolos diretamente do SDK OpenTelemetry.
-
----
-
-### Requisito 11 — Ambiente local de desenvolvimento
-
-**User Story:** Como desenvolvedor da equipe, quero conseguir executar a API e o banco de dados localmente com um único comando, para que o ciclo de desenvolvimento e teste seja rápido e reproduzível.
-
-#### Critérios de aceitação
-
-1. THE API SHALL ser empacotada por um `Dockerfile` multi-stage localizado em `api/Dockerfile`, com uma etapa de build (instalação de dependências e compilação, se aplicável) e uma etapa final de produção com imagem base mínima.
-2. THE Repository SHALL incluir um arquivo `api/docker-compose.yml` que inicie a API e um container PostgreSQL com inicialização automática do `db-schema.sql`.
-3. WHEN o `docker-compose up` é executado e o PostgreSQL finaliza sua inicialização, THE Environment SHALL estar funcional com a API respondendo ao `GET /healthz` com HTTP 200 e ao `GET /readyz` com HTTP 200 dentro de 60 segundos.
-4. THE `api/docker-compose.yml` SHALL definir variáveis de ambiente com valores placeholder para desenvolvimento local (por exemplo, `postgres` como senha); credenciais reais não devem constar em nenhum arquivo versionado no repositório.
-5. THE `Dockerfile` SHALL executar a aplicação com um usuário sem privilégios de root na etapa de produção.
+O estado atualizado de cada uma fica na tabela do `SSOT.md`.

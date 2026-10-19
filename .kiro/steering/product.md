@@ -1,42 +1,54 @@
-# Product Steering
+# Produto
 
-## Visão do produto
+## O que é
 
-O projeto consiste no desenvolvimento de um encurtador de URLs com uma proposta criativa e uma arquitetura cloud-native. A aplicação permitirá transformar URLs longas em links curtos, armazenar os dados associados e redirecionar os usuários para seus destinos originais.
+Um encurtador de links com identidade própria, feito para o hackathon de CloudOps. Ele transforma URLs longas em links curtos, guarda a relação entre os dois e redireciona quem acessa o link curto. Por baixo, roda inteiro em Kubernetes, com CI/CD no GitHub Actions, deploy por GitOps com ArgoCD e observabilidade com OpenTelemetry e Grafana.
 
-O desenvolvimento será realizado em equipe, utilizando o Kiro como ferramenta de apoio e Spec-Driven Development (SDD) para organizar requisitos, decisões técnicas e implementação.
+A equipe trabalha com Spec-Driven Development: o escopo e as decisões ficam no `SSOT.md`, e cada área tem sua spec em `.kiro/specs/`.
 
-## Objetivos
+## Equipe
 
-- Desenvolver uma aplicação funcional de encurtamento e redirecionamento de URLs.
-- Demonstrar o uso de tecnologias cloud-native, com execução em Kubernetes e implantação por GitOps.
-- Implementar automação de build e testes por meio de CI/CD.
-- Permitir a observabilidade da aplicação por meio de métricas e traces.
-- Criar uma identidade visual própria e funcionalidades que diferenciem o produto.
-- Documentar o processo de desenvolvimento e o uso do Kiro.
+| Pessoa | Responsável por |
+|---|---|
+| Joseph | Frontend e telas (interface, animação da dobra, mascote no app) |
+| Fábio | Identidade do produto: brand book do Foldway (personagem, tema, tom de voz e features) |
+| Diêgo | DevOps e GitOps (Kubernetes, pipeline, ArgoCD), backend, banco de dados e integração; aprova documentos e decisões |
+| Abby | SRE e observabilidade |
+| Lucas | Backend |
 
-## Público-alvo
+## Identidade (proposta)
 
-O produto será destinado a usuários que precisam criar, compartilhar e acessar links curtos de maneira simples e prática.
+O nome, o personagem e a feature exclusiva já estão implementados, mas ainda aguardam a aprovação do Diêgo (D-08, D-15, D-16 e D-17 no SSOT). Até lá, trate tudo abaixo como proposta. A referência completa é o brand book do Fábio (`docs/brand-book.md`, hoje na branch `feat/identidade-fabio`).
 
-A interface deve priorizar clareza, facilidade de uso e apresentação objetiva das funcionalidades disponíveis.
+- **Nome:** Foldway, "o ateliê de atalhos".
+- **Personagem:** Furl, um artesão de origami que dobra links longos até caberem no bolso. Calmo, caprichoso, fala pouco e direto. Tem cinco poses (boas-vindas, dobrando, pronto, erro e mesa vazia), em `frontend/public/mascot/`.
+- **Tema:** encurtar um link é dobrar um papel: o tamanho muda, o destino não.
+- **Visual:** índigo, branco-papel, kraft, ciano e um único destaque quente, o coral, reservado ao origami.
+- **Tom de voz:** frases curtas, calmas, com o vocabulário do ateliê, sem virar charada. Exemplo: "Dobrado. Cabe no bolso agora."
 
-Mais especificidades podem ser definidas de acordo com as decisões de identidade do grupo.
+## Funcionalidades
 
-## Escopo inicial
+Obrigatórias, todas implementadas:
 
-O escopo funcional obrigatório inclui:
+- criar link curto, com código aleatório ou personalizado e expiração opcional;
+- listar os links criados;
+- redirecionar para a URL original, com 404 para link inexistente e 410 para expirado;
+- guardar tudo no PostgreSQL.
 
-- Criar links curtos a partir de URLs originais.
-- Persistir a associação entre códigos curtos e URLs originais.
-- Redirecionar acessos aos destinos correspondentes.
-- Disponibilizar uma interface para criação e listagem dos links.
+Exclusivas do Foldway:
 
-Funcionalidades adicionais e elementos de identidade própria poderão ser definidos pela equipe ao longo do desenvolvimento, respeitando o prazo e os requisitos do desafio.
+- **a dobra do link:** ao criar, o endereço vira um papel kraft que é dobrado até virar o origami com o código curto;
+- **QR Code do ateliê:** cada link tem um QR Code com o origami no centro e download em PNG; os acessos pelo QR são contados no Grafana;
+- **origami desfeito:** link inexistente ou expirado mostra o Furl diante de um origami rasgado, mantendo o status HTTP;
+- **analytics:** estatísticas por link (cliques por hora) e ranking dos mais clicados, que alimentam o "link do dia" no dashboard.
 
-## Diretrizes de produto
+## Público
 
-- Priorizar o funcionamento correto das funcionalidades essenciais antes de adicionar recursos extras.
-- Manter uma experiência de uso simples e coerente.
-- Não assumir funcionalidades, regras de negócio ou decisões de produto que ainda não tenham sido aprovadas pela equipe.
-- Manter as especificações alinhadas aos objetivos e requisitos registrados no SSOT.
+Quem precisa criar e compartilhar links curtos de forma simples. A interface prioriza clareza: um campo, um botão, o resultado e a lista.
+
+## Diretrizes
+
+- O essencial funcionando ponta a ponta vem antes de qualquer feature extra.
+- Toda feature exclusiva deve gerar algum sinal observável (métrica ou trace), para aparecer na demo.
+- Personagem, textos e visual contam a mesma história. Texto novo na interface segue o tom do Furl.
+- Não invente funcionalidade ou regra de negócio que não esteja no SSOT ou numa spec.

@@ -1,291 +1,152 @@
-Status: Rascunho
+Status: Aprovado em 2026-10-18 por Diêgo
 
-# Design — 02-devops-gitops
+# Design — DevOps e GitOps
 
 ## 1. Visão geral
 
-Este documento descreve como os requisitos de infraestrutura, CI/CD e GitOps serão atendidos.
-A abordagem central é o **mono-repo com GitOps**: o mesmo repositório contém o código da
-aplicação e os manifests Kubernetes. O GitHub Actions constrói e publica as imagens e atualiza
-as tags nos manifests. O ArgoCD observa o repositório e reconcilia o cluster com o estado
-declarado.
+Usamos um monorepo: código, manifests e pipeline no mesmo repositório. O GitHub Actions testa e publica as imagens; o ArgoCD observa `k8s/` na `main` e deixa o cluster igual ao Git.
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│  Developer push → main                                           │
-│           │                                                       │
-│           ▼                                                       │
-│   ┌───────────────┐   build + push   ┌──────────────────┐        │
-│   │ GitHub Actions│ ───────────────► │  Container       │        │
-│   │  (CI/CD)      │                  │  Registry (GHCR) │        │
-│   └───────┬───────┘                  └──────────────────┘        │
-│           │ atualiza tag em k8s/                                  │
-│           ▼                                                       │
-│   ┌───────────────┐   sync           ┌──────────────────┐        │
-│   │  Git repo     │ ◄─── watch ──── │  ArgoCD          │        │
-│   │  k8s/         │                  │  (GitOps)        │        │
-│   └───────────────┘                  └────────┬─────────┘        │
-│                                               │ apply             │
-│                                               ▼                   │
-│                                    ┌──────────────────┐          │
-│                                    │  Kubernetes       │          │
-│                                    │  Cluster          │          │
-│                                    └──────────────────┘          │
-└─────────────────────────────────────────────────────────────────┘
+merge na main
+   │
+   ▼
+GitHub Actions (.github/workflows/ci-cd.yaml)
+   test-api ─────┐
+   test-frontend ├─► build (api, frontend) ─► deploy
+   validate ─────┘    push no GHCR             yq grava newTag em k8s/kustomization.yaml
+                      tags <sha7> e latest     commit "deploy: ... [skip ci]"
+                                                   │
+                                                   ▼
+                                    ArgoCD (Application kiro-portal)
+                                    observa k8s/ na main, prune + selfHeal
+                                                   │
+                                                   ▼
+                                    cluster, namespace encurtador
 ```
 
-## 2. Organização dos manifests Kubernetes
+## 2. Pipeline (`.github/workflows/ci-cd.yaml`)
 
-Adota-se um **mono-repo com diretório `k8s/` plano por componente** (D-07: proposta).
-Não se usa Helm nem Kustomize nesta fase para reduzir complexidade, dado o prazo do hackathon.
-Os manifests são YAML raw, organizados por componente:
+Começamos com dois workflows, um por componente, cada um commitando sua tag. Eles faziam push ao mesmo tempo e brigavam no Git, então juntamos tudo num pipeline só.
 
-```
-k8s/
-├── base/
-│   ├── namespace.yaml         # Namespace do projeto
-│   └── argocd-app.yaml        # Application do ArgoCD
-├── api/
-│   ├── deployment.yaml
-│   ├── service.yaml
-│   └── configmap.yaml
-├── frontend/
-│   ├── deployment.yaml
-│   └── service.yaml
-├── database/
-│   ├── statefulset.yaml       # ou deployment.yaml se sem PVC
-│   ├── service.yaml
-│   └── secret.yaml            # placeholder — não contém valores reais
-└── observability/             # reservado para spec 03-observabilidade
-    └── .gitkeep
-```
+### Gatilhos
 
-### Namespace
+| Evento | O que roda |
+|---|---|
+| Pull request | Testes, validação e build, sem publicar |
+| Push na `develop` | Igual ao PR |
+| Push na `main` | Tudo, incluindo publicar as imagens e o commit da tag |
+| `workflow_dispatch` | Segue a regra da branch escolhida |
 
-Todos os recursos usam o namespace `encurtador` (nome provisório, ajustar conforme identidade
-definida em D-08).
+No push, `paths-ignore` deixa de fora `**.md`, `docs/**` e `.kiro/**`. Não filtramos por componente: qualquer mudança de código roda o pipeline dos dois. Para o tamanho do projeto isso é mais simples e o tempo extra é pequeno.
 
-### Estratégia de Secrets
+O `concurrency` agrupa por branch e cancela execuções antigas só em PR. Na `main` cada execução vai até o fim, para nenhum deploy ficar pela metade.
 
-O `database/secret.yaml` versionado no repositório contém **apenas a estrutura do Secret**
-(chaves sem valores, ou com valores de exemplo). Os valores reais são injetados:
-- No ambiente local: via `kubectl create secret` manual ou arquivo `.env` não versionado.
-- No CI/CD: via GitHub Secrets, com o workflow criando/atualizando o Secret no cluster antes
-  do ArgoCD sincronizar, **ou** via um External Secrets Operator (fora do escopo desta fase).
+### Jobs
 
-> **Decisão pendente Q-02:** se o banco for uma solução gerenciada (ex.: RDS, Cloud SQL),
-> o StatefulSet e o Secret serão simplificados ou removidos.
+- **test-api:** Ubuntu 24.04, Python 3.12 (a mesma da imagem), Postgres 16 como service e `python -m pytest -v`.
+- **test-frontend:** Node 22 (o mesmo da imagem), `npm ci`, `npm run lint`, `npm run lint:css`, `npm test` e `npm run build`.
+- **validate:** `kubectl kustomize k8s` e kubeconform `-strict` no resultado; kubeconform na Application do ArgoCD usando o catálogo de CRDs; `docker compose config -q`.
+- **build:** matriz `[api, frontend]`, depende dos três anteriores. O nome da imagem é `ghcr.io/${GITHUB_REPOSITORY,,}/<componente>`, em minúsculas porque o GHCR exige (o dono do repositório tem maiúsculas). Só faz login e push quando o evento não é PR e a branch é `main`. Usa cache do Actions por componente e grava os labels OCI `source` e `revision`.
+- **deploy:** só na `main`. Usa o `yq` que já vem no runner para atualizar `newName` e `newTag` das duas imagens em `k8s/kustomization.yaml`, commita como `github-actions[bot]` com a mensagem `deploy: api e frontend em <sha7> [skip ci]` e faz push com até 3 tentativas, com `git pull --rebase` entre elas.
 
-## 3. Manifests Kubernetes — Detalhamento
+As permissões são as mínimas: `contents: read` no geral, `packages: write` no build e `contents: write` no deploy.
 
-### 3.1. Namespace
+## 3. Manifests
+
+### Ponto de entrada
+
+`k8s/kustomization.yaml` aplica `namespace: encurtador` e o label `app.kubernetes.io/part-of: kiro-portal` em tudo, lista os recursos e gera os ConfigMaps da observabilidade a partir dos arquivos em `k8s/observability/config/` e do JSON do dashboard. O sufixo de hash desses ConfigMaps faz o pod reiniciar quando a config muda no Git.
+
+O bloco `images` é a única coisa que o CI edita:
 
 ```yaml
-# k8s/base/namespace.yaml
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: encurtador
+images:
+  - name: ghcr.io/josephlmedeiros/rascunho-encurtador/api
+    newName: ghcr.io/josephlmedeiros/rascunho-encurtador/api
+    newTag: <sha7>
+  - name: ghcr.io/josephlmedeiros/rascunho-encurtador/frontend
+    newName: ghcr.io/josephlmedeiros/rascunho-encurtador/frontend
+    newTag: <sha7>
 ```
 
-### 3.2. API — Deployment
+### API
 
-Variáveis de ambiente injetadas via ConfigMap e Secret. Probes apontam para `/health`
-(a ser implementado pela equipe de backend).
+- Deployment com 2 réplicas, `envFrom` do ConfigMap `api-config` e `DB_USER`/`DB_PASSWORD` do Secret `db-credentials`.
+- `startupProbe` em `/healthz` a cada 2s, até 60 falhas (120s de orçamento). O valor anterior, 80s, matava a API no primeiro boot do Postgres no kind.
+- `livenessProbe` em `/healthz` a cada 10s e `readinessProbe` em `/readyz` a cada 5s.
+- Roda sem root (UID 10001), com sistema de arquivos só leitura, sem escalada de privilégio, sem capabilities e com seccomp `RuntimeDefault`. Um `emptyDir` em `/tmp` cobre o que precisa de escrita.
+- Requests de 100m/128Mi e limits de 500m/256Mi.
+- Anotações `prometheus.io/scrape`, `port` e `path` para o Prometheus achar cada pod.
+- Service `ClusterIP` na porta 8080.
 
-```yaml
-# k8s/api/deployment.yaml (resumido)
-containers:
-  - name: api
-    image: ghcr.io/josephlmedeiros/rascunho-encurtador/api:TAG   # TAG atualizada pelo CI
-    ports:
-      - containerPort: 8080
-    envFrom:
-      - configMapRef:
-          name: api-config
-      - secretRef:
-          name: db-credentials
-    livenessProbe:
-      httpGet:
-        path: /health
-        port: 8080
-      initialDelaySeconds: 10
-      periodSeconds: 15
-    readinessProbe:
-      httpGet:
-        path: /health
-        port: 8080
-      initialDelaySeconds: 5
-      periodSeconds: 10
-```
+### Frontend
 
-### 3.3. Frontend — Deployment
+- Deployment com 2 réplicas, imagem própria baseada em `nginx:1.27-alpine-otel`, escutando na 8080.
+- Liveness e readiness em `/healthz`, que o nginx responde sem chamar a API. Assim o frontend não cai junto quando a API está fora.
+- Service `ClusterIP` na porta 80, apontando para a 8080 do container.
 
-Probe aponta para `/` ou `/healthz` (a ser implementado/confirmado pela equipe de frontend).
+O nginx do frontend faz proxy de `/api` e `/r` para o Service `api`. Por isso o navegador fala com uma origem só e não precisa de CORS.
 
-### 3.4. Database
+### Banco
 
-Usa StatefulSet com `volumeClaimTemplate` de 1Gi para persistência durante o hackathon.
-Se o ambiente não suportar PVC, pode ser simplificado para Deployment com `emptyDir`
-(dados perdidos ao reiniciar o Pod — aceitável para demo se o time decidir assim).
+- StatefulSet com `postgres:16-alpine`. O nome do banco vem do `api-config` e as credenciais do `db-credentials`.
+- `PGDATA` num subdiretório do volume, para não conflitar com o `lost+found`.
+- Liveness e readiness com `pg_isready`.
+- PVC `db-data` de 1Gi.
+- Service `ClusterIP` na 5432, só dentro do cluster.
 
-> **Decisão pendente Q-02.**
+### Secret de exemplo
 
-### 3.5. Services
+`k8s/database/secret.yaml` vai para o Git com `troque-esta-senha`. Fizemos assim para o ArgoCD conseguir subir o ambiente da demo sem passo manual. O arquivo explica como criar o Secret real com `kubectl create secret` fora do repositório. O mesmo vale para o Secret `grafana-admin`.
 
-| Componente | Tipo sugerido      | Motivo                                           |
-|------------|--------------------|--------------------------------------------------|
-| API        | ClusterIP + Ingress | Acesso externo controlado via Ingress            |
-| Frontend   | ClusterIP + Ingress | Idem                                             |
-| Database   | ClusterIP          | Acesso apenas interno (pela API)                 |
+### Ingress
 
-> **Decisão pendente Q-01:** se não houver Ingress Controller no cluster do bootcamp,
-> usar NodePort como fallback.
+`k8s/base/ingress.yaml` manda todo o tráfego para o Service `frontend`, sem regras para `/api`, porque o nginx já faz esse papel. Ele está comentado no kustomization até o cluster ter um Ingress Controller. A primeira versão tinha um `rewrite-target: /` que quebrava as rotas `/api`, e isso foi tirado.
 
-## 4. Pipeline CI/CD — GitHub Actions
+## 4. ArgoCD
 
-### 4.1. Estrutura de workflows
+### Application (`argocd/application.yaml`)
 
-```
-.github/
-└── workflows/
-    ├── ci-api.yaml         # Build, test e push da API
-    ├── ci-frontend.yaml    # Build e push do Frontend
-    └── update-manifests.yaml  # Atualiza tags no k8s/ (chamado pelos anteriores)
-```
+- Nome `kiro-portal`, no namespace `argocd`.
+- Fonte: este repositório, `targetRevision: main`, `path: k8s`.
+- Destino: o próprio cluster, namespace `encurtador`.
+- `automated` com `prune: true` e `selfHeal: true`, `CreateNamespace=true` e retry de 5 tentativas com backoff de 10s até 3 min.
+- Finalizer `resources-finalizer.argocd.argoproj.io`: apagar a Application apaga os recursos.
 
-### 4.2. Fluxo do CI (API como exemplo)
+A Application fica fora de `k8s/` de propósito. Se ficasse dentro, o ArgoCD estaria gerenciando a si mesmo.
 
-```
-push para main (api/**)
-        │
-        ▼
-  [checkout]
-        │
-        ▼
-  [setup-language]   # ex.: setup-python, setup-node, setup-go — a definir (D-03)
-        │
-        ▼
-  [test]             # placeholder: executa testes da API
-        │
-        ▼
-  [docker-build]     # docker build -t <registry>/api:<sha>
-        │
-        ▼
-  [docker-push]      # push para GHCR (ou registry configurado em D-10)
-        │
-        ▼
-  [update-manifest]  # sed/yq atualiza image tag em k8s/api/deployment.yaml
-        │
-        ▼
-  [git-commit]       # commit "chore: update api image to <sha>"
-```
+### Instalação (`scripts/argocd-up.sh`)
 
-### 4.3. Segredos necessários (GitHub Secrets)
+- Instala o ArgoCD v3.5.5 (versão fixa) com `kubectl apply --server-side --force-conflicts`, porque os CRDs são grandes demais para o apply comum.
+- Espera `argocd-server` e `argocd-application-controller` ficarem prontos.
+- Aplica a Application e espera `Synced` e `Healthy` por até 5 minutos.
+- Mostra a senha inicial do `admin`.
 
-| Secret                  | Uso                                      |
-|-------------------------|------------------------------------------|
-| `REGISTRY_TOKEN`        | Autenticação no container registry      |
-| `REGISTRY_USER`         | Usuário do registry                      |
-| `K8S_DB_PASSWORD`       | Senha do banco (para criar Secret no K8s)|
-| `K8S_DB_USER`           | Usuário do banco                         |
+### Cuidado nos testes de resiliência
 
-> **Nota:** os secrets acima são referenciados nos workflows mas seus valores devem ser
-> cadastrados manualmente no GitHub (Settings → Secrets → Actions). Nenhum valor real
-> é versionado no repositório.
+Com o `selfHeal` ligado, qualquer `kubectl scale` ou `rollout restart` é desfeito em segundos. Para testar falhas é preciso pausar o auto-sync antes e reaplicar a Application depois. O passo a passo está no apêndice do `docs/validacao-sre.md`.
 
-### 4.4. Atualização de manifests (update-manifests.yaml)
+## 5. Ambiente local
 
-O step usa `yq` (ferramenta de edição YAML) para atualizar o campo `image` no Deployment
-correspondente e em seguida faz commit e push na branch `main`. O ArgoCD detecta a mudança
-e sincroniza o cluster automaticamente.
+- **Docker Compose:** banco, API, frontend, Collector, Tempo, Prometheus e Grafana. As configs da observabilidade são os mesmos arquivos de `k8s/observability/config/` (o Prometheus tem uma versão com alvo fixo, `prometheus.compose.yaml`). Portas: app 3000, Grafana 3001, Prometheus 9090 e API 8080.
+- **`scripts/kind-up.sh`:** cria o cluster `kiro` no kind, builda as imagens com a tag `local`, carrega no cluster, aplica o kustomize trocando `latest` por `local` e espera banco e API.
+- **`scripts/port-forward.sh`:** abre frontend (3000), Grafana (3001), Prometheus (9090), API (8080) e ArgoCD (8443) num terminal só.
+- **`scripts/gerar-trafego.sh`:** cria links e gera cliques por alguns segundos, para o dashboard ter o que mostrar.
 
-```bash
-# Exemplo de comando de atualização
-yq e '.spec.template.spec.containers[0].image = "ghcr.io/josephlmedeiros/rascunho-encurtador/api:'"$SHA"'"' \
-  -i k8s/api/deployment.yaml
-```
+## 6. Verificação
 
-## 5. ArgoCD — Configuração GitOps
+O que foi validado e como está no `docs/validacao-sre.md`. Em resumo:
 
-### 5.1. Application
+- pipeline: PR com testes e build verdes e deploy pulado; merge na `main` com os 6 jobs verdes e o bot commitando a nova tag;
+- ArgoCD: imagens em uso iguais ao `newTag` da `main`, aplicação `Synced` e `Healthy`;
+- self-heal: escalar a API para 5 réplicas volta para 2 em segundos;
+- banco fora do ar: pods da API em `0/1`, sem restart, e volta sozinho;
+- persistência: o link criado antes continua funcionando depois de recriar o pod do Postgres;
+- rollout: 299 de 300 requisições OK durante um `rollout restart`, com um 504.
 
-O manifesto `k8s/base/argocd-app.yaml` declara a Application do ArgoCD:
+## 7. Limitações conhecidas
 
-```yaml
-apiVersion: argoproj.io/v1alpha1
-kind: Application
-metadata:
-  name: encurtador
-  namespace: argocd
-spec:
-  project: default
-  source:
-    repoURL: https://github.com/JosephLMedeiros/rascunho-encurtador.git
-    targetRevision: main
-    path: k8s
-  destination:
-    server: https://kubernetes.default.svc
-    namespace: encurtador
-  syncPolicy:
-    automated:
-      prune: true
-      selfHeal: true
-    syncOptions:
-      - CreateNamespace=true
-```
-
-> **Decisão pendente Q-03:** se o ArgoCD não estiver instalado no cluster do bootcamp,
-> será necessário instalá-lo com `kubectl apply -n argocd -f
-> https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml`
-> antes de aplicar a Application.
-
-### 5.2. Auto-sync
-
-O ArgoCD monitora o diretório `k8s/` na branch `main`. Quando o CI atualiza a tag da imagem
-e faz commit, o ArgoCD detecta a divergência e sincroniza automaticamente em até 3 minutos
-(intervalo padrão do polling). Para demos ao vivo, pode-se forçar a sincronização manual
-pela interface do ArgoCD.
-
-## 6. Estratégia de imagens e tags
-
-| Imagem         | Convenção de tag              | Exemplo                          |
-|----------------|-------------------------------|----------------------------------|
-| API            | `<sha7>` do commit            | `api:a1b2c3d`                   |
-| Frontend       | `<sha7>` do commit            | `frontend:a1b2c3d`              |
-
-Não se usa a tag `latest` em manifests de produção para garantir rastreabilidade.
-
-## 7. Acomodação da observabilidade (spec 03)
-
-O diretório `k8s/observability/` fica reservado para os manifests do stack de observabilidade
-(Prometheus, Grafana, OpenTelemetry Collector) que serão adicionados pela equipe de SRE.
-Os Deployments de API e frontend já incluem anotações de scrape do Prometheus como comentários,
-para facilitar a instrumentação posterior:
-
-```yaml
-# Adicionar quando spec 03 for implementada:
-# annotations:
-#   prometheus.io/scrape: "true"
-#   prometheus.io/port: "8080"
-#   prometheus.io/path: "/metrics"
-```
-
-## 8. Pontos de integração com outras specs
-
-| Spec                  | O que esta spec precisa delas                                    |
-|-----------------------|------------------------------------------------------------------|
-| 01-nucleo-funcional   | Porta e path do endpoint `/health` da API e do frontend          |
-| 01-nucleo-funcional   | Variáveis de ambiente esperadas pela API (ex.: DATABASE_URL)     |
-| 01-nucleo-funcional   | Dockerfile da API e do frontend                                  |
-| 03-observabilidade    | Manifests de OTel Collector, Prometheus e Grafana (em k8s/observability/) |
-
-## 9. Decisões registradas neste design
-
-| ID    | Decisão proposta                               | Estado   |
-|-------|------------------------------------------------|----------|
-| D-07  | Mono-repo; manifests em `k8s/` por componente; YAML raw sem Helm/Kustomize | Proposta |
-| D-10  | GHCR (GitHub Container Registry) como registry padrão | Proposta |
-| Q-01  | ClusterIP + Ingress como padrão; fallback NodePort | Proposta |
-| Q-02  | StatefulSet com PVC 1Gi para o banco           | Proposta |
-| Q-03  | Verificar se ArgoCD está instalado no cluster do bootcamp | Pendente |
+- Exposição só por `port-forward`; o Ingress não foi testado com um controller.
+- Senhas de exemplo no Git, aceitas para a demo.
+- Um 504 durante o rollout da API. A suspeita é uma requisição caindo num pod em encerramento, mas não confirmamos. Um `preStop` com uma pequena espera e `maxUnavailable: 0` devem resolver.
+- Tudo foi validado em Linux. macOS e Windows não foram testados.

@@ -33,8 +33,8 @@ k8s/                 kustomize: app + observabilidade (ponto de entrada do ArgoC
   observability/     Collector, Tempo, Prometheus, Grafana, configs e dashboard
 argocd/              Application do ArgoCD
 .github/workflows/   ci-cd.yaml (testes API/frontend -> validação -> build/push GHCR -> commit da tag)
-scripts/             gerar-trafego.sh (demo) e kind-up.sh (cluster local)
-docs/                kiro-log.md (uso de IA), otel-metrics-spec.md (contrato de telemetria)
+scripts/             gerar-trafego.sh (demo), kind-up.sh (cluster local), argocd-up.sh e port-forward.sh
+docs/                kiro-log.md (uso de IA), otel-metrics-spec.md (contrato de telemetria), validacao-sre.md (relatório final para entrega)
 openapi.yaml         contrato da API
 SSOT.md              escopo, requisitos e decisões do grupo
 ```
@@ -48,6 +48,7 @@ Funciona em Windows, macOS e Linux. Só é preciso ter instalado:
 - **Git**
 - **Docker** com o Compose v2: [Docker Desktop](https://www.docker.com/products/docker-desktop/) no Windows/macOS, ou Docker Engine + plugin `docker compose` no Linux. Deixe o Docker aberto e rodando.
 - Cerca de **4 GB de RAM livres** e as portas **3000, 3001, 8080 e 9090** livres.
+- **Opcional, só para rodar no Kubernetes local (seção 3):** **kind** e **kubectl**. O passo a passo de instalação está na própria seção 3.
 
 Não é preciso instalar Node, Python nem Postgres: tudo roda em containers.
 
@@ -77,6 +78,22 @@ O que fica disponível:
 | Grafana | http://localhost:3001 (abre direto no dashboard; admin / `troque-esta-senha`) |
 | Prometheus | http://localhost:9090 |
 
+Para testar sem o navegador, você pode usar a API pelo terminal. O `curl` é uma ferramenta que faz requisições HTTP:
+
+1. **O primeiro `curl` cria um link curto**, o mesmo que o botão **Encurtar** do site. Ele pede ao portal para criar `localhost:3000/r/meu-portal` apontando para `https://example.com`. O `custom_code` é o código escolhido (sem ele, a API gera um aleatório). Se rodar o comando duas vezes, a segunda devolve **409**, porque o código já existe: para repetir, troque o `custom_code`.
+
+2. **O segundo `curl` acessa o link curto**, como um visitante. O `-i` mostra os cabeçalhos da resposta: o esperado é `302 Found` com `location: https://example.com`, e o clique é contado. Um código que não existe devolve `404`.
+
+3. **O script gera tráfego** por 120 segundos, para os painéis do Grafana terem dados.
+
+
+```bash
+curl -X POST localhost:3000/api/links -H 'content-type: application/json' \
+  -d '{"original_url":"https://example.com","custom_code":"meu-portal"}'
+curl -i localhost:3000/r/meu-portal          # 302 -> destino, conta o clique
+scripts/gerar-trafego.sh http://localhost:3000 120
+```
+
 ```bash
 curl -X POST localhost:3000/api/links -H 'content-type: application/json' \
   -d '{"original_url":"https://example.com","custom_code":"meu-portal"}'
@@ -96,18 +113,35 @@ npm run dev        # http://localhost:5173
 npm test           # testes do frontend; também há npm run lint e npm run lint:css
 ```
 
-Testes da API (precisa de Python 3.12):
+
+Testes da API. O jeito mais simples não exige instalar Python nem Postgres, só o Docker (igual em Linux, macOS e Windows). Rode da **raiz do projeto**:
+
+```bash
+docker compose --profile test run --rm api-test
+docker compose --profile test down      # remove o banco de teste ao terminar
+```
+
+O comando sobe um Postgres descartável (`test-db`), espera ele ficar pronto, roda o pytest com Python 3.12 e apaga o container dos testes. A aplicação não precisa estar rodando, e os outros serviços não sobem. Os serviços de teste ficam no profile `test`, então o `docker compose up` normal os ignora.
+
+> **Atenção:** use `run api-test`, e não `docker compose --profile test up`, que sobe a aplicação inteira junto com os testes.
+
+São 44 testes, entre unitários e de integração com Postgres real. Eles cobrem a criação, os conflitos (409), as validações (400), a paginação, o redirect (302, 404 e 410), a contagem de cliques, o ranking, o banco fora do ar (503) e o **contrato de telemetria** (nomes das métricas, `http_route` como template e o span do banco como filho do span HTTP).
+
+<details>
+<summary>Alternativa sem Docker (Python local)</summary>
+
+Precisa de **Python 3.12** (confira com `python3 --version`; versões diferentes podem se comportar de outro jeito) e de um Postgres de teste:
 
 ```bash
 docker run -d --name kiro-test-db -e POSTGRES_USER=kiro -e POSTGRES_PASSWORD=kiro \
   -e POSTGRES_DB=kiro_test -p 5433:5432 postgres:16-alpine
 cd api
-python -m venv .venv && . .venv/bin/activate     # Windows: .venv\Scripts\activate
+python3 -m venv .venv && . .venv/bin/activate     # Windows: .venv\Scripts\activate
 pip install -r requirements-dev.txt
 pytest                                            # usa TEST_DATABASE_URL (padrão: localhost:5433)
+docker rm -f kiro-test-db                         # remove o banco de teste ao terminar
 ```
-
-São 44 testes, entre unitários e de integração com Postgres real. Eles cobrem a criação, os conflitos (409), as validações (400), a paginação, o redirect (302, 404 e 410), a contagem de cliques, o ranking, o banco fora do ar (503) e o **contrato de telemetria** (nomes das métricas, `http_route` como template e o span do banco como filho do span HTTP).
+</details>
 
 ### 3. Kubernetes local com kind (plano B da demo)
 
@@ -116,6 +150,118 @@ scripts/kind-up.sh
 kubectl -n encurtador port-forward svc/frontend 3000:80
 kubectl -n encurtador port-forward svc/grafana 3001:3000
 ```
+
+### 3. Kubernetes local com kind (plano B da demo)
+
+O **kind** (Kubernetes IN Docker) cria um cluster Kubernetes dentro de containers Docker. Ele sobe a mesma aplicação do Docker Compose, mas operada como num cluster de verdade: 2 réplicas da API e do frontend, StatefulSet para o Postgres, probes de saúde etc.
+
+> O Compose e o kind são **ambientes independentes** e disputam as portas 3000 e 3001 e a memória. **Pare o Compose antes** (`docker compose down`).
+
+#### Passo 1: instalar o kind e o kubectl (uma única vez)
+
+O **kind** cria o cluster e o **kubectl** é a ferramenta para conversar com ele. O Docker precisa estar instalado e aberto (veja os pré-requisitos).
+
+**Linux (x86_64):**
+
+```bash
+# kind
+curl -Lo ./kind https://kind.sigs.k8s.io/dl/latest/kind-linux-amd64
+chmod +x ./kind
+sudo mv ./kind /usr/local/bin/kind
+
+# kubectl
+curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+chmod +x kubectl
+sudo mv kubectl /usr/local/bin/kubectl
+```
+
+Em máquinas ARM (por exemplo, uma VM em Mac com chip Apple), troque `amd64` por `arm64`. Para saber a sua arquitetura, rode `uname -m` (`x86_64` = amd64, `aarch64` = arm64).
+
+**macOS (Homebrew):**
+
+```bash
+brew install kind kubectl
+```
+
+**Windows (PowerShell):**
+
+```powershell
+winget install Kubernetes.kind
+winget install Kubernetes.kubectl
+```
+
+Feche e abra o terminal depois de instalar. No Windows, os scripts `.sh` do projeto precisam de um terminal bash: use o **WSL** ou o **Git Bash**.
+
+Confirme que as duas ferramentas foram instaladas:
+
+```bash
+kind version
+kubectl version --client
+```
+
+> As instruções de Linux são as que foram usadas nos testes. As de macOS e Windows seguem a documentação oficial do [kind](https://kind.sigs.k8s.io/docs/user/quick-start/#installation) e do [kubectl](https://kubernetes.io/docs/tasks/tools/), e podem variar com a versão do gerenciador de pacotes.
+
+#### Passo 2: subir o cluster
+
+Da **raiz do projeto**:
+
+```bash
+scripts/kind-up.sh
+```
+
+O script cria o cluster `kiro`, builda as imagens da API e do frontend localmente, carrega-as no cluster e aplica os manifests de `k8s/`. A primeira vez demora alguns minutos. Se aparecer `Permission denied`, o clone é antigo e o script está sem permissão de execução: rode `chmod +x scripts/*.sh` ou `bash scripts/kind-up.sh`.
+
+Quando terminar, confira se todos os pods estão `Running` e `READY` (ex.: `1/1`):
+
+```bash
+kubectl -n encurtador get pods
+```
+
+#### Passo 3: abrir o app e o Grafana
+
+Dentro do cluster, os serviços só têm endereço interno. O `kubectl port-forward` faz a ponte para o seu computador. Sem ele, **o site e o Grafana não abrem**, mesmo com tudo rodando no cluster.
+
+**Recomendado: um terminal só.**
+
+```bash
+scripts/port-forward.sh
+```
+
+O script abre de uma vez o app (http://localhost:3000), o Grafana (http://localhost:3001), o Prometheus (http://localhost:9090), a API (http://localhost:8080, com a documentação em `/docs`) e, se o ArgoCD estiver instalado (seção 4), a interface dele (https://localhost:8443). Deixe o terminal aberto: **Ctrl+C encerra todas as conexões**.
+
+**Alternativa: um comando por terminal.**
+
+```bash
+kubectl -n encurtador port-forward svc/frontend 3000:80      # app em http://localhost:3000
+kubectl -n encurtador port-forward svc/grafana 3001:3000     # Grafana em http://localhost:3001
+kubectl -n encurtador port-forward svc/prometheus 9090:9090  # Prometheus (confirme o nome e a porta com `kubectl -n encurtador get svc`)
+kubectl -n encurtador port-forward svc/api 8080:8080         # API em http://localhost:8080 (documentação em /docs)
+```
+
+- Cada comando **ocupa o terminal** e precisa continuar rodando. Ctrl+C derruba a ponte, mas o cluster continua de pé.
+- Se o site parar de responder depois de um deploy, o pod por trás da conexão pode ter sido trocado: rode o script ou o comando de novo.
+
+No Grafana, o painel "Pods da API no ar" deve mostrar **2**, e no Prometheus o `up{app="api"}` terá uma série por pod.
+
+#### Para apagar o cluster
+
+```bash
+kind delete cluster --name kiro
+kind get clusters                 # não deve mais listar "kiro"
+```
+
+Isso remove o cluster inteiro, incluindo o Postgres e o ArgoCD instalados nele. Encerre antes os `port-forward` (Ctrl+C).
+
+#### Se algo der errado
+
+| Sintoma | Causa provável | O que fazer |
+|---|---|---|
+| `kind: command not found` ou `kubectl: command not found` | Ferramenta não instalada | Faça o passo 1 |
+| `Permission denied` ao rodar o script | Clone antigo, sem permissão de execução | `chmod +x scripts/*.sh` |
+| Pod em `Pending` ou `CrashLoopBackOff` | Falta de memória, ou o cluster ainda está subindo | Libere memória (`docker compose down`) e acompanhe com `kubectl -n encurtador get pods -w` |
+| `port is already allocated` ou `address already in use` | O Compose ou outro `port-forward` está usando a porta | `docker compose down` e feche os `port-forward` antigos |
+| Site e Grafana não abrem | `port-forward` não está rodando | Rode os comandos do passo 3 |
+| Site e Grafana não abrem | `port-forward` não está rodando | Rode `scripts/port-forward.sh` (passo 3) |
 
 ### 4. Cluster com GitOps (ArgoCD)
 
@@ -134,6 +280,132 @@ kubectl -n argocd port-forward svc/argocd-server 8443:443   # https://localhost:
 kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d
 kubectl -n encurtador port-forward svc/frontend 3000:80      # o app servido pelo cluster
 ```
+
+### 4. Cluster com GitOps (ArgoCD)
+
+Esta seção usa duas peças que trabalham juntas. Vale entender a diferença antes de rodar qualquer comando:
+
+- **CI (GitHub Actions):** roda nos servidores do GitHub. Testa, builda as imagens e, depois do merge na `main`, faz um commit alterando a tag das imagens em `k8s/kustomization.yaml`.
+- **CD (ArgoCD):** roda **dentro do seu cluster**. Fica olhando a pasta `k8s/` do repositório e aplica no cluster tudo o que mudar nela. O Git é a fonte da verdade.
+
+```mermaid
+flowchart LR
+  M[Merge na main] --> A[GitHub Actions<br/>testes, build e push das imagens]
+  A --> B[Bot commita a nova tag<br/>em k8s/kustomization.yaml]
+  B --> G[(Repositório Git)]
+  G -->|ArgoCD observa a pasta k8s/| C[ArgoCD<br/>dentro do cluster]
+  C --> K[Cluster aplica os pods novos]
+```
+
+> O ArgoCD mostra o **deploy e a saúde da aplicação**, não o CI. Os testes e o build aparecem na aba **Actions** do repositório no GitHub.
+
+#### O que o pipeline faz
+
+O `.github/workflows/ci-cd.yaml` roda em **Pull Request**, em **push nas branches `main` e `develop`** e também manualmente (aba **Actions** → *Run workflow*). Ele sempre roda o pytest, o lint e os testes do frontend, valida os manifests com kubeconform e builda as imagens. O que muda é o destino das imagens:
+
+| Evento | Testes e build | Publica imagens no GHCR | Atualiza a tag e dispara o deploy |
+|---|---|---|---|
+| Pull Request | sim | não | não |
+| Push na `develop` | sim | não | não |
+| Push na `main` | sim | sim | sim |
+
+Na `main`, o pipeline publica as imagens em `ghcr.io/<owner>/<repo>/{api,frontend}:<sha>` e **commita a nova tag** em `k8s/kustomization.yaml` (commit `deploy: ...` do bot, com `[skip ci]` para não disparar outro pipeline). Uma execução manual segue a mesma regra da branch escolhida.
+
+> Pushes que alteram **apenas** arquivos `.md`, a pasta `docs/` ou `.kiro/` **não disparam** o pipeline. Por isso, mergear na `main` um PR que só muda documentação não gera deploy nem commit do bot. Em Pull Request o pipeline roda de qualquer forma.
+
+
+#### Antes de começar
+
+- O cluster precisa estar de pé. No kind, rode antes o `scripts/kind-up.sh` (seção 3) e confirme com `kubectl -n encurtador get pods`.
+- `kubectl` apontando para esse cluster.
+- As imagens no GHCR (`api` e `frontend`) estão **públicas**, então o cluster não precisa de credencial. Num fork, os pacotes nascem privados: torne-os públicos ou configure um `imagePullSecret`.
+- O cluster precisa de uma StorageClass padrão para o PVC do Postgres.
+- Confira o `repoURL` em `argocd/application.yaml`: é o repositório que o ArgoCD vai observar. Num fork, ajuste para o seu.
+
+#### Passo 1: instalar o ArgoCD (uma única vez)
+
+```bash
+scripts/argocd-up.sh
+```
+
+O script instala o ArgoCD **v3.5.5** (versão fixa), aplica `argocd/application.yaml` (que diz ao ArgoCD qual repositório e pasta observar), espera a primeira sincronização e mostra a senha do `admin`. Pode ser rodado de novo sem problema.
+
+Depois, confirme que tudo subiu:
+
+```bash
+kubectl -n argocd get pods          # todos Running
+```
+
+A partir daqui, tudo chega pelo Git. O ArgoCD consulta a `main` a cada ~3 minutos (o botão **Refresh** na interface força a verificação) e sincroniza `k8s/` com `prune` (remove o que saiu do Git) e `selfHeal` (desfaz alterações feitas na mão no cluster).
+
+> **Atenção:** a primeira sincronização troca as imagens locais do kind (`:local`) pelas do GHCR indicadas em `k8s/kustomization.yaml`.
+
+#### Passo 2: abrir a interface do ArgoCD
+
+```bash
+kubectl -n argocd port-forward svc/argocd-server 8443:443
+```
+
+Esse comando **ocupa o terminal** e precisa continuar rodando. Abra **https://localhost:8443**. (Se você já usa o `scripts/port-forward.sh` da seção 3, ele também abre a interface do ArgoCD e este comando não é necessário.) O navegador pode avisar que o certificado não é confiável, porque ele é autoassinado: prossiga mesmo assim.
+
+Em **outro terminal**, pegue a senha do usuário `admin`:
+
+```bash
+kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d
+```
+
+Esse comando só **imprime a senha** e termina, não fica rodando.
+
+O app servido pelo cluster abre em http://localhost:3000 com o `scripts/port-forward.sh` ou, em outro terminal, com `kubectl -n encurtador port-forward svc/frontend 3000:80`.
+
+Cada `port-forward` ocupa um terminal. Se o site ou a interface pararem de responder depois de um deploy, o pod por trás da conexão pode ter sido trocado: rode o comando de novo.
+
+#### O que a interface mostra
+
+| Item | Significado |
+|---|---|
+| `Synced` / `OutOfSync` | O cluster está igual ao Git / diferente do Git |
+| `Healthy` / `Progressing` / `Degraded` | Saúde dos recursos da aplicação |
+| Árvore de recursos | Deployments, Pods, Services e StatefulSet, cada um com seu estado |
+| Histórico | De qual commit veio cada versão aplicada |
+
+#### Roteiro de demo do GitOps
+
+**Deploy (Git → cluster).** Exige permissão de escrita no repositório que o `argocd/application.yaml` observa.
+
+1. Faça um merge na `main` e acompanhe o pipeline na aba **Actions**.
+2. Confira o commit `deploy: ...` do bot no histórico (`git pull` para trazê-lo ao seu computador).
+3. Na interface do ArgoCD, a aplicação fica `OutOfSync` e volta a `Synced` quando os pods novos sobem (em até ~3 minutos, ou use **Refresh**).
+4. Confira a nova tag nas imagens dos pods:
+   ```bash
+   kubectl -n encurtador get deploy api frontend -o wide    # coluna IMAGES
+   kubectl -n encurtador get pods
+   ```
+
+**Self-heal (cluster → Git).** Não exige permissão de escrita:
+
+```bash
+kubectl -n encurtador scale deploy/api --replicas=5
+```
+
+O ArgoCD detecta que o cluster difere do Git (que define 2 réplicas): a aplicação fica `OutOfSync` por alguns segundos e as réplicas extras são terminadas, voltando para 2. É a prova de que o Git é a fonte da verdade.
+
+> O self-heal desfaz o que **diverge do Git**. O caminho contrário funciona normalmente: se você mudar as réplicas **no Git**, o ArgoCD aplica a mudança no cluster.
+
+#### Se algo der errado
+
+| Sintoma | Causa provável | O que fazer |
+|---|---|---|
+| Pod em `ImagePullBackOff` | Pacotes do GHCR privados | Torne-os públicos ou configure um `imagePullSecret` |
+| Aplicação sempre `OutOfSync` ou sem sincronizar | `repoURL` aponta para outro repositório, ou o ArgoCD ainda não consultou o Git | Confira `argocd/application.yaml` e clique em **Refresh** |
+| Site ou interface param de responder depois de um deploy | O pod do `port-forward` foi trocado | Rode o `port-forward` de novo |
+| `argocd-up.sh`: `Permission denied` | Clone antigo, sem o bit de executável | `chmod +x scripts/*.sh` ou `bash scripts/argocd-up.sh` |
+| Pods do `argocd` fora de `Running` | Instalação ainda em andamento | `kubectl -n argocd get pods -w` e aguarde |
+
+#### Pontos de atenção
+
+- As senhas em `k8s/database/secret.yaml` e `k8s/observability/grafana.yaml` são **exemplos ("troque-esta-senha")**. Os próprios arquivos explicam como usar um Secret real fora do Git.
+- Se houver um Ingress Controller, habilite `k8s/base/ingress.yaml` no kustomization e ajuste o `BASE_URL`.
 
 **Roteiro de demo do GitOps:**
 - **Deploy:** faça um merge na `main` e mostre o pipeline publicando as imagens, o commit `deploy: ...` do bot e o ArgoCD trocando os pods para a nova tag.
@@ -198,7 +470,24 @@ O contrato está em [docs/otel-metrics-spec.md](docs/otel-metrics-spec.md).
   - **link do dia** (SQL no Postgres);
   - spans por componente e **traces recentes** com link para o trace no Tempo.
 
-**Roteiro da demo:** rode `scripts/gerar-trafego.sh` e mostre os painéis subindo. Depois clique num Trace ID em "Traces recentes" para mostrar o trace atravessando frontend → API → banco.
+**Roteiro da demo:**
+
+1. Rode `scripts/gerar-trafego.sh http://localhost:3000 120` e mostre os painéis subindo. O Grafana abre como visitante, sem login.
+2. Para abrir um trace, clique em **Sign in** e entre com `admin` / `troque-esta-senha`. Sem o login, o clique no Trace ID só recarrega a página.
+3. No painel inferior direito, clique num Trace ID em "Traces recentes" para mostrar o trace atravessando frontend → API → banco.
+
+> O span `kiro-browser` só aparece em ações feitas pelo site (criar e listar links). Redirects abertos na barra de endereço, `curl` ou o script de tráfego começam no `kiro-frontend`. Para ver a cadeia completa, crie um link pelo site.
+
+## Segurança e limitações conhecidas
+
+Este projeto foi feito para demo e hackathon. Antes de usá-lo fora desse contexto, saiba o que ele **não** faz:
+
+- **Senhas de exemplo.** As credenciais (`troque-esta-senha`) estão versionadas em `docker-compose.yml`, `k8s/database/secret.yaml` e `k8s/observability/grafana.yaml`. Os próprios arquivos explicam como usar um Secret real fora do Git.
+- **O Grafana abre como visitante, sem login.** Qualquer pessoa que alcance a porta 3001 vê os dashboards. O login de administrador só é necessário para abrir traces e editar painéis.
+- **As portas do Compose ficam abertas para a rede.** O Compose publica 3000, 3001, 8080 e 9090 em todas as interfaces (`0.0.0.0`), então outras máquinas da mesma rede conseguem acessá-las. Em Wi-Fi compartilhado, prefixe o lado esquerdo do `ports` com `127.0.0.1:` (ex.: `"127.0.0.1:9090:9090"`) para limitar ao seu computador.
+- **API e Prometheus sem autenticação.** `/docs`, `/metrics` (na API) e o Prometheus não pedem login. O `/metrics` **não** é repassado pelo frontend (porta 3000), que devolve a página do app para esse caminho.
+- **O banco não é exposto.** O Postgres só é acessível dentro da rede do Compose, sem porta publicada no host.
+- **Avisos do `npm audit`.** As vulnerabilidades reportadas estão só nas ferramentas de desenvolvimento (Stylelint); `npm audit --omit=dev` retorna zero e nada disso vai para a imagem de produção.
 
 ## Decisões técnicas (resumo)
 
@@ -227,4 +516,4 @@ A implementação em Python (API, manifests, pipeline e observabilidade) foi fei
 - traces poluídos pelas probes;
 - picos de latência por fsync.
 
-Os prompts, as decisões e as revisões estão em [docs/kiro-log.md](docs/kiro-log.md).
+O que cada sessão produziu, as revisões e as decisões estão em [docs/kiro-log.md](docs/kiro-log.md).

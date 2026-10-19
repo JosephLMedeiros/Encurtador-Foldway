@@ -1,39 +1,45 @@
-# Tech Steering
+# Tecnologia
 
-## Tecnologias e requisitos obrigatórios
+## Obrigatório pelo enunciado
 
-O projeto deve atender aos seguintes requisitos tecnológicos:
+- **Kubernetes** para rodar frontend, API e banco.
+- **GitHub Actions** para build, testes e publicação das imagens.
+- **ArgoCD** para o deploy por GitOps.
+- **OpenTelemetry** para traces que atravessam os componentes.
+- **Grafana** para os dashboards.
 
-- **Kubernetes:** executar os componentes da aplicação no cluster.
-- **GitHub Actions:** automatizar build, testes e publicação das imagens.
-- **ArgoCD:** realizar a implantação contínua utilizando GitOps.
-- **OpenTelemetry:** permitir a coleta e propagação de traces entre os componentes.
-- **Grafana:** apresentar métricas e informações relevantes sobre o funcionamento da aplicação.
-- **Containers:** empacotar os componentes para execução no ambiente Kubernetes.
+## Stack em uso
 
-## Decisões técnicas
+O estado de cada decisão (confirmada, proposta, pendente) fica só na tabela do `SSOT.md`, seção 8. A lista abaixo resume o que está no código hoje, para consulta rápida.
 
-O estado de cada decisão técnica (confirmada, pendente etc.) é mantido na tabela de decisões do `SSOT.md` (seção 8), que é a referência única. Este arquivo não deve repetir esse estado.
+| Área | O que usamos | Decisão |
+|---|---|---|
+| API | Python 3.12, FastAPI, psycopg 3 com pool, uvicorn | D-03 |
+| Banco | PostgreSQL 16, schema em `api/app/schema.sql` aplicado pela API no boot | D-05 |
+| Frontend | React 19, Vite, React Router 7, JavaScript sem TypeScript, CSS puro com variáveis de tema (stack escolhida e construída pelo Joseph) | D-04 |
+| Servidor do frontend | nginx 1.27 com módulo OpenTelemetry, proxy de `/api`, `/r` e `/otlp` na mesma origem | D-12, D-13 |
+| Código curto | 7 caracteres `[a-z0-9]` aleatórios ou 3 a 50 `[A-Za-z0-9_-]` personalizados; redirect em `/r/{code}` | D-06 |
+| Contrato da API | `openapi.yaml`, campos em snake_case | D-11 |
+| Manifests | Kustomize, com `k8s/kustomization.yaml` como entrada | D-07 |
+| Registry | GHCR, autenticado pelo `GITHUB_TOKEN` | D-10 |
+| GitOps | ArgoCD v3.5.5, Application `kiro-portal` observando `k8s/` na `main` | D-01, D-07 |
+| Observabilidade | OTel Collector, Tempo, Prometheus e Grafana | D-09 |
+| Tracing no navegador | `frontend/src/api/tracing.js`, sem SDK | D-14 |
+| Ambiente | Docker Compose para desenvolvimento; kind com ArgoCD para o cluster | D-02 (pendente) |
 
-As principais escolhas técnicas e seus IDs na tabela são:
+Versões das imagens e bibliotecas estão fixadas em `api/requirements.txt`, `frontend/package.json`, nos Dockerfiles e nos manifests. Ao subir uma versão, mude no arquivo e rode o pipeline.
 
-- Ambiente Kubernetes (D-02).
-- Linguagem e framework da API (D-03).
-- Tecnologia do frontend (D-04).
-- Banco de dados (D-05).
-- Estratégia de geração e armazenamento dos códigos curtos (D-06).
-- Organização do repositório GitOps (D-07).
-- Ferramentas e configuração detalhada de observabilidade (D-09).
-- Registry de imagens de contêiner (D-10).
+## Contratos que não podem quebrar
 
-O Kiro deve consultar a tabela antes de propor ou implementar soluções e não deve tratar como definitiva nenhuma decisão cujo estado não seja `Confirmada`. Quando uma escolha for necessária para elaborar uma proposta técnica, deverá apresentar uma sugestão fundamentada e aguardar a validação da equipe.
+- `openapi.yaml`: rotas, corpos e códigos de erro da API. O frontend só fala com a API por `frontend/src/api/api.js`.
+- `docs/otel-metrics-spec.md`: nomes de métricas, atributos e consultas do dashboard. Mudou uma métrica, atualize o contrato, o teste em `api/tests/test_telemetry.py` e o dashboard juntos.
+- `active_links`: a única definição de link ativo. Não repita a regra em outro lugar.
 
-Quando uma decisão for confirmada, os detalhes técnicos aprovados (como versões e convenções) podem ser registrados neste arquivo.
+## Regras práticas
 
-## Diretrizes gerais
-
-- Priorizar soluções compatíveis com os requisitos do desafio e com o ambiente Kubernetes disponível.
-- Evitar complexidade desnecessária para o escopo e o prazo do projeto (2026/10/19).
-- Manter configurações específicas do ambiente separadas do código da aplicação.
-- Não inventar credenciais, URLs, recursos disponíveis no cluster ou configurações já aprovadas.
-- Documentar as decisões técnicas relevantes e manter os arquivos consistentes com as escolhas confirmadas pela equipe.
+- Nada de rótulo de alta cardinalidade em métrica (código curto, URL, IP, user agent). Em span pode.
+- Feature nova com métrica entra no conjunto `FEATURES` de `api/app/telemetry.py`.
+- Configuração vem de variável de ambiente (ConfigMap ou Secret). Nada de endereço ou senha no código.
+- Senha real nunca vai para o Git. Os Secrets versionados têm só valores de exemplo.
+- Os testes da API rodam em Python 3.12, a mesma versão da imagem.
+- Prefira a solução mais simples que cabe no prazo (2026-10-19). Se uma escolha depende de decisão pendente, proponha e espere a equipe.

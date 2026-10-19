@@ -1,34 +1,42 @@
-# Structure Steering
+# Estrutura do repositório
 
-## Organização do repositório
+Monorepo: código, manifests, pipeline e documentação no mesmo lugar.
 
-O projeto deve seguir uma organização modular, separando a documentação, o código da aplicação, os recursos de infraestrutura e os arquivos de automação.
-
-A estrutura planejada é:
-
-- `SSOT.md`: referência central dos objetivos, requisitos gerais e decisões do projeto.
-- `README.md`: apresentação do projeto e instruções de uso.
-- `.kiro/steering/`: orientações permanentes para o Kiro.
-- `.kiro/specs/`: especificações funcionais e técnicas organizadas por área ou funcionalidade.
-- `docs/`: documentação complementar, fluxos de trabalho e registros de desenvolvimento.
-- `frontend/`: código da interface da aplicação.
-- `api/`: código da API.
-- `k8s/`: manifests e recursos de implantação no Kubernetes.
-- `.github/workflows/`: workflows de automação do GitHub Actions.
+```
+.
+├── SSOT.md                  # escopo, requisitos do hackathon e tabela de decisões
+├── README.md                # visão do projeto e como rodar
+├── openapi.yaml             # contrato da API
+├── docker-compose.yml       # stack completa local (e profile "test" para o pytest)
+├── api/                     # API em Python/FastAPI
+│   ├── app/                 # main, config, db, repository, shortcode, telemetry, schema.sql
+│   └── tests/               # pytest
+├── frontend/                # React + Vite, servido por nginx
+│   ├── src/                 # api/, components/, config/, lib/, pages/, styles/
+│   ├── public/mascot/       # poses do Furl
+│   └── nginx.conf
+├── k8s/                     # manifests (ponto de entrada: kustomization.yaml)
+│   ├── base/                # namespace e Ingress
+│   ├── api/  frontend/  database/
+│   └── observability/       # Collector, Tempo, Prometheus, Grafana, configs e dashboard
+├── argocd/application.yaml  # Application do ArgoCD (fora de k8s/ de propósito)
+├── scripts/                 # kind-up, argocd-up, port-forward, gerar-trafego
+├── .github/workflows/       # ci-cd.yaml, o único pipeline
+├── docs/                    # registro do uso do Kiro, contrato de telemetria, guias e validação
+└── .kiro/
+    ├── steering/            # estes arquivos
+    └── specs/               # 01-backend-api, 02-devops-gitops, 04-observabilidade
+```
 
 ## Convenções
 
-- Manter cada componente em seu diretório correspondente.
-- Organizar as specs por funcionalidade ou área do sistema, mantendo os arquivos `requirements.md`, `design.md` e `tasks.md` dentro de cada especificação.
-- Evitar duplicar informações já documentadas no SSOT ou nas specs.
-- Atualizar a documentação quando mudanças relevantes alterarem a organização do projeto.
-- Reutilizar a estrutura existente antes de criar novos diretórios ou arquivos.
-- Manter nomes claros e consistentes com as convenções já adotadas no repositório.
+- Cada componente fica no seu diretório e tem seu próprio Dockerfile.
+- Toda mudança no cluster passa por `k8s/`. Não aplique nada à mão: o ArgoCD desfaz.
+- As configs da observabilidade ficam em `k8s/observability/config/` e são usadas pelo compose e pelo Kubernetes. Não crie cópias.
+- Cada spec tem `requirements.md`, `design.md` e `tasks.md`. A numeração das specs é por área; o número 03 não foi usado.
+- Antes de criar arquivo ou pasta nova, veja se já existe um lugar para aquilo.
+- Documentação que muda com a estrutura (README, esta página, specs) é atualizada no mesmo commit da mudança.
 
-## Flexibilidade da estrutura
+## Mudanças estruturais
 
-A estrutura descrita representa a organização planejada inicialmente e pode ser ajustada conforme a evolução do projeto.
-
-O Kiro deve respeitar a organização existente e propor alterações estruturais quando necessário, explicando sua finalidade e aguardando a aprovação da equipe antes de realizar mudanças significativas.
-
-Decisões sobre tecnologias, arquitetura interna e implementação não devem ser inferidas apenas com base na localização dos arquivos.
+Mover diretórios, renomear arquivos de contrato ou trocar o ponto de entrada do kustomize afeta o pipeline e o ArgoCD. Proponha a mudança, explique o motivo e espere a equipe aprovar.
