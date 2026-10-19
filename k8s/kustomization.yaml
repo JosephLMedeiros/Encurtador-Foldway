@@ -45,7 +45,7 @@ configMapGenerator:
 images:
   - name: ghcr.io/josephlmedeiros/rascunho-encurtador/api
     newTag: 4b79deb
-    newName: ghcr.io/josephlmedeiros/rascunho-encurtador/api
-  - name: ghcr.io/josephlmedeiros/rascunho-encurtador/frontend
+    newName: ghcr.io/josephlemedeiros/rascunho-encurtador/api
+  - name: ghcr.io/josephlemedeiros/rascunho-encurtador/frontend
     newTag: 4b79deb
     newName: ghcr.io/josephlmedeiros/rascunho-encurtador/frontend
